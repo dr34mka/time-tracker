@@ -9,7 +9,28 @@
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # прод-сборка в dist/
+npm run app        # запуск десктоп-приложения (Electron, нужен свежий dist/)
 ```
+
+## Релиз десктоп-приложения
+
+Обёртка — Electron + electron-builder (конфиг в `package.json`, поле `build`;
+главный процесс — `electron/main.cjs`).
+
+- **Windows (локально):** `npm run dist:win` → в `release/` появятся
+  `Time Tracker Pro Setup 0.1.0.exe` (инсталлятор) и
+  `Time Tracker Pro 0.1.0.exe` (portable). Если сборка падает на распаковке
+  winCodeSign (симлинки требуют прав администратора) — включите Developer Mode
+  в Windows или распакуйте архив в кэш вручную, ошибки на `darwin/*.dylib`
+  можно игнорировать.
+- **macOS:** собирается только на macOS — используйте GitHub Actions
+  (`.github/workflows/build.yml`): запуск вручную (workflow_dispatch) или пуш
+  тега `v*`. Артефакты: dmg + zip для arm64 и x64, без подписи
+  (`identity: null`) — при первом открытии нужен правый клик → «Открыть»,
+  для нормальной подписи/нотаризации нужен Apple Developer ID.
+- Версия артефактов берётся из `version` в `package.json`.
+- Данные приложения (localStorage) живут в профиле Electron
+  (`%APPDATA%/Time Tracker Pro` на Windows) и не зависят от браузера.
 
 ## Стек
 
