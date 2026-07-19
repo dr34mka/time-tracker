@@ -4,3 +4,4 @@ release/
 .claude/
 *.log
 *.tsbuildinfo
+.DS_Store

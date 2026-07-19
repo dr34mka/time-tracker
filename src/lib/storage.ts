@@ -1,6 +1,8 @@
 import type { AppState, Currency } from '../types';
 
-const KEY = 'time-tracker-pro-v1';
+const KEY = 'time-tracker-v1';
+/** Прежний ключ (до переименования пакета) — читаем один раз для миграции */
+const LEGACY_KEY = 'time-tracker-pro-v1';
 
 export const DEFAULT_STATE: AppState = {
   settings: {
@@ -43,7 +45,7 @@ export function parseState(raw: string): AppState | null {
 }
 
 export function loadState(): AppState {
-  const raw = localStorage.getItem(KEY);
+  const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
   if (!raw) return DEFAULT_STATE;
   return parseState(raw) ?? DEFAULT_STATE;
 }

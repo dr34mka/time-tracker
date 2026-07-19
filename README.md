@@ -53,7 +53,7 @@ template-PNG, генерируются `scripts/gen-tray-icons.mjs` (`npm run ic
 
 - React 18 + TypeScript + Vite
 - Состояние: React Context + useReducer
-- Хранение: localStorage (ключ `time-tracker-pro-v1`) — состояние таймера
+- Хранение: localStorage (ключ `time-tracker-v1`) — состояние таймера
   переживает закрытие вкладки: хранятся эпох-метки старта, прошедшее время
   вычисляется при загрузке.
 

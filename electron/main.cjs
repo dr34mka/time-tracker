@@ -20,6 +20,22 @@ const fs = require('fs');
 
 const DATA_FILE_NAME = 'time-tracker-data.json';
 
+/* Пакет переименован time-tracker-pro → time-tracker, а от имени пакета
+   зависит папка userData. Однократно перетаскиваем данные из старой папки. */
+function migrateLegacyUserData() {
+  try {
+    const dir = app.getPath('userData');
+    const legacy = path.join(path.dirname(dir), 'time-tracker-pro');
+    if (!fs.existsSync(legacy)) return;
+    fs.mkdirSync(dir, { recursive: true });
+    for (const name of ['config.json', DATA_FILE_NAME]) {
+      const from = path.join(legacy, name);
+      const to = path.join(dir, name);
+      if (fs.existsSync(from) && !fs.existsSync(to)) fs.copyFileSync(from, to);
+    }
+  } catch {}
+}
+
 function configPath() {
   return path.join(app.getPath('userData'), 'config.json');
 }
@@ -352,6 +368,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    migrateLegacyUserData();
     registerIpc(() => mainWindow);
     registerTrayIpc();
     createWindow();
