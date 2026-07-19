@@ -1,4 +1,4 @@
-# Time Tracker Pro
+# Time Tracker
 
 Трекер рабочего времени для фрилансеров и небольших команд: проекты, задачи,
 таймер, ставки в нескольких валютах и отчёты с расчётом заработка.
@@ -18,8 +18,8 @@ npm run app        # запуск десктоп-приложения (Electron,
 главный процесс — `electron/main.cjs`).
 
 - **Windows (локально):** `npm run dist:win` → в `release/` появятся
-  `Time Tracker Pro Setup 0.1.0.exe` (инсталлятор) и
-  `Time Tracker Pro 0.1.0.exe` (portable). Если сборка падает на распаковке
+  `Time Tracker Setup 0.1.0.exe` (инсталлятор) и
+  `Time Tracker 0.1.0.exe` (portable). Если сборка падает на распаковке
   winCodeSign (симлинки требуют прав администратора) — включите Developer Mode
   в Windows или распакуйте архив в кэш вручную, ошибки на `darwin/*.dylib`
   можно игнорировать.
@@ -30,7 +30,7 @@ npm run app        # запуск десктоп-приложения (Electron,
   для нормальной подписи/нотаризации нужен Apple Developer ID.
 - Версия артефактов берётся из `version` в `package.json`.
 - Данные приложения (localStorage) живут в профиле Electron
-  (`%APPDATA%/Time Tracker Pro` на Windows) и не зависят от браузера.
+  (`%APPDATA%/Time Tracker` на Windows) и не зависят от браузера.
 
 ## Стек
 

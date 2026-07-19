@@ -14,8 +14,11 @@ import {
   toDateInputValue,
 } from '../lib/time';
 import { downloadCsv } from '../lib/csv';
+import { escapeHtml, printHtml } from '../lib/print';
 import type { Currency } from '../types';
 import Icon from '../components/Icon';
+import Select from '../components/Select';
+import DatePicker from '../components/DatePicker';
 
 type Period = 'today' | 'week' | 'month' | '30d' | 'all' | 'custom';
 
@@ -120,8 +123,8 @@ export default function ReportsScreen() {
   const state = useAppState();
   const [period, setPeriod] = useState<Period>('week');
   const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [customFrom, setCustomFrom] = useState(toDateInputValue(addDays(Date.now(), -7)));
-  const [customTo, setCustomTo] = useState(toDateInputValue(Date.now()));
+  const [customFrom, setCustomFrom] = useState(() => addDays(startOfDay(Date.now()), -7));
+  const [customTo, setCustomTo] = useState(() => startOfDay(Date.now()));
 
   const taskById = useMemo(() => new Map(state.tasks.map((t) => [t.id, t])), [state.tasks]);
   const projectById = useMemo(() => new Map(state.projects.map((p) => [p.id, p])), [state.projects]);
@@ -142,7 +145,7 @@ export default function ReportsScreen() {
         return [startOfDay(first), addDays(startOfDay(now), 1)];
       }
       case 'custom':
-        return [fromDateInputValue(customFrom), addDays(fromDateInputValue(customTo), 1)];
+        return [customFrom, addDays(customTo, 1)];
     }
   }, [period, now, customFrom, customTo, state.entries]);
 
@@ -217,7 +220,7 @@ export default function ReportsScreen() {
 
   const exportCsv = () => {
     const rows: (string | number)[][] = [
-      ['Дата', 'Проект', 'Клиент', 'Задача', 'Тэги', 'Начало', 'Конец', 'Длительность (ч)', 'Оплач. мин', 'Ставка', 'Валюта', 'Сумма', 'Заметка'],
+      ['Дата', 'Проект', 'Клиент', 'Задача', 'Начало', 'Конец', 'Длительность (ч)', 'Оплач. мин', 'Ставка', 'Валюта', 'Сумма', 'Заметка'],
     ];
     const sorted = [...filtered].sort((a, b) => a.start - b.start);
     for (const e of sorted) {
@@ -229,7 +232,6 @@ export default function ReportsScreen() {
         project?.name ?? '',
         project?.client ?? '',
         task?.title ?? '',
-        task?.tags.join(', ') ?? '',
         new Date(e.start).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
         new Date(e.end).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
         (e.durationMs / 3600000).toFixed(2).replace('.', ','),
@@ -243,37 +245,125 @@ export default function ReportsScreen() {
     downloadCsv(`report_${dayKey(from)}_${dayKey(addDays(to, -1))}.csv`, rows);
   };
 
+  // Печатный отчёт для клиента (диалог печати → «Сохранить как PDF»)
+  const exportPdf = () => {
+    const fmtH = (ms: number) => (ms / 3600000).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+    const sorted = [...filtered].sort((a, b) => a.start - b.start);
+    const singleProject = projectFilter !== 'all' ? projectById.get(projectFilter) : undefined;
+    const periodLabel =
+      `${new Date(from).toLocaleDateString('ru-RU')} — ${new Date(addDays(to, -1)).toLocaleDateString('ru-RU')}`;
+
+    const bodyRows = sorted
+      .map((e) => {
+        const task = taskById.get(e.taskId);
+        const project = projectById.get(e.projectId);
+        const c = computeEntry(e, taskById, projectById, state.settings);
+        return `<tr>
+          <td>${new Date(e.start).toLocaleDateString('ru-RU')}</td>
+          <td>${escapeHtml(project?.name ?? '')}</td>
+          <td>${escapeHtml(task?.title ?? '')}</td>
+          <td class="note">${escapeHtml(e.note ?? '')}</td>
+          <td class="num">${fmtH(e.durationMs)}</td>
+          <td class="num">${fmtH(c.billedMin * 60000)}</td>
+          <td class="num">${formatMoney(c.amount, c.currency)}</td>
+        </tr>`;
+      })
+      .join('');
+
+    const projectRows = [...groups.entries()]
+      .map(([pid, g]) => {
+        const p = projectById.get(pid);
+        return `<tr>
+          <td>${escapeHtml(p?.name ?? '')}${p?.client ? ` <span class="muted">· ${escapeHtml(p.client)}</span>` : ''}</td>
+          <td class="num">${fmtH(g.agg.durationMs)}</td>
+          <td class="num">${(g.agg.billedMin / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
+          <td class="num"><b>${formatMoneyByCurrency(g.agg.money)}</b></td>
+        </tr>`;
+      })
+      .join('');
+
+    const html = `<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<title>Отчёт по времени ${periodLabel}</title>
+<style>
+  @page { margin: 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #111; font-size: 12px; line-height: 1.45; margin: 0; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .sub { color: #666; margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 22px; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #888; padding: 6px 8px; border-bottom: 1.5px solid #222; }
+  td { padding: 6px 8px; border-bottom: 1px solid #e4e4e4; vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th.num { text-align: right; }
+  .note { color: #555; }
+  .muted { color: #999; }
+  .totals { display: flex; gap: 28px; margin: 4px 0 18px; }
+  .totals div { font-size: 13px; }
+  .totals b { font-size: 16px; display: block; }
+  h2 { font-size: 13px; margin: 18px 0 4px; }
+  .footer { color: #999; font-size: 10px; margin-top: 26px; border-top: 1px solid #e4e4e4; padding-top: 8px; }
+</style></head><body>
+  <h1>Отчёт по отработанному времени</h1>
+  <div class="sub">
+    Период: ${periodLabel}
+    ${singleProject ? ` · Проект: ${escapeHtml(singleProject.name)}` : ''}
+    ${singleProject?.client ? ` · Клиент: ${escapeHtml(singleProject.client)}` : ''}
+  </div>
+  <div class="totals">
+    <div>Отработано<b>${fmtH(summary.durationMs)} ч</b></div>
+    <div>К оплате<b>${(summary.billedMin / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ч</b></div>
+    <div>Сумма<b>${formatMoneyByCurrency(summary.money)}</b></div>
+  </div>
+  <h2>Сводка по проектам</h2>
+  <table>
+    <thead><tr><th>Проект</th><th class="num">Часы</th><th class="num">К оплате, ч</th><th class="num">Сумма</th></tr></thead>
+    <tbody>${projectRows}</tbody>
+  </table>
+  <h2>Детализация</h2>
+  <table>
+    <thead><tr><th>Дата</th><th>Проект</th><th>Задача</th><th>Комментарий</th><th class="num">Часы</th><th class="num">К оплате, ч</th><th class="num">Сумма</th></tr></thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
+  <div class="footer">Сформировано в Time Tracker · ${new Date().toLocaleDateString('ru-RU')}</div>
+</body></html>`;
+
+    printHtml(html);
+  };
+
   return (
     <>
       <div className="screen-head">
         <h1>Отчёты</h1>
-        <button className="btn" onClick={exportCsv} disabled={filtered.length === 0}>
-          <Icon name="download" size={15} /> Экспорт CSV
-        </button>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn" onClick={exportCsv} disabled={filtered.length === 0}>
+            <Icon name="download" size={15} /> CSV
+          </button>
+          <button className="btn btn-primary" onClick={exportPdf} disabled={filtered.length === 0}>
+            <Icon name="download" size={15} /> Скачать PDF
+          </button>
+        </div>
       </div>
 
       <div className="filters">
-        <select value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
-          {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
-            <option key={p} value={p}>
-              {PERIOD_LABEL[p]}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={period}
+          onChange={(v) => setPeriod(v as Period)}
+          options={(Object.keys(PERIOD_LABEL) as Period[]).map((p) => ({ value: p, label: PERIOD_LABEL[p] }))}
+        />
         {period === 'custom' && (
           <>
-            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            <DatePicker value={customFrom} onChange={setCustomFrom} />
+            <DatePicker value={customTo} onChange={setCustomTo} />
           </>
         )}
-        <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
-          <option value="all">Все проекты</option>
-          {state.projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={projectFilter}
+          onChange={setProjectFilter}
+          options={[
+            { value: 'all', label: 'Все проекты' },
+            ...state.projects.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+        />
       </div>
 
       <div className="tiles">
@@ -327,12 +417,7 @@ export default function ReportsScreen() {
                         const task = taskById.get(taskId);
                         return (
                           <tr key={taskId}>
-                            <td style={{ paddingLeft: 32 }}>
-                              {task?.title ?? 'Удалённая задача'}
-                              {task && task.tags.length > 0 && (
-                                <span className="meta"> · {task.tags.join(', ')}</span>
-                              )}
-                            </td>
+                            <td style={{ paddingLeft: 32 }}>{task?.title ?? 'Удалённая задача'}</td>
                             <td className="num">{(agg.durationMs / 3600000).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
                             <td className="num">{(agg.billedMin / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
                             <td className="num">{formatMoneyByCurrency(agg.money)}</td>

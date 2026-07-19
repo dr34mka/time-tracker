@@ -71,6 +71,6 @@ export function formatMoneyByCurrency(totals: Partial<Record<Currency, number>>)
   const entries = Object.entries(totals).filter(([, v]) => v !== undefined) as [Currency, number][];
   const nonZero = entries.filter(([, v]) => v > 0);
   const shown = nonZero.length > 0 ? nonZero : entries.slice(0, 1);
-  if (shown.length === 0) return formatMoney(0, 'USD');
+  if (shown.length === 0) return formatMoney(0, 'RUB');
   return shown.map(([c, v]) => formatMoney(v, c)).join(' · ');
 }

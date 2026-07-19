@@ -1,137 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppDispatch, useAppState } from '../state';
-import Modal from '../components/Modal';
-import { uid } from '../lib/storage';
+import ProjectForm, { STATUS_LABEL } from '../components/ProjectForm';
+import Icon from '../components/Icon';
 import { computeEntry, formatMoney, formatMoneyByCurrency, resolveCurrency } from '../lib/money';
 import { formatHours } from '../lib/time';
-import { CURRENCIES, PROJECT_COLORS, type Currency, type Project, type ProjectStatus } from '../types';
-
-const STATUS_LABEL: Record<ProjectStatus, string> = {
-  active: 'активный',
-  paused: 'на паузе',
-  completed: 'завершён',
-};
-
-interface FormProps {
-  initial?: Project;
-  onClose: () => void;
-}
-
-function ProjectForm({ initial, onClose }: FormProps) {
-  const state = useAppState();
-  const dispatch = useAppDispatch();
-  const [name, setName] = useState(initial?.name ?? '');
-  const [client, setClient] = useState(initial?.client ?? '');
-  const [color, setColor] = useState(initial?.color ?? PROJECT_COLORS[0]);
-  const [status, setStatus] = useState<ProjectStatus>(initial?.status ?? 'active');
-  const [useCustomRate, setUseCustomRate] = useState(initial?.rate !== undefined);
-  const [rate, setRate] = useState(initial?.rate?.toString() ?? '');
-  const [currency, setCurrency] = useState<Currency>(initial?.currency ?? state.settings.currency);
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    const project: Project = {
-      id: initial?.id ?? uid(),
-      name: name.trim(),
-      client: client.trim(),
-      color,
-      status,
-      rate: useCustomRate && rate !== '' ? Math.max(0, Number(rate)) : undefined,
-      currency: useCustomRate ? currency : initial?.currency,
-      archived: initial?.archived ?? false,
-      createdAt: initial?.createdAt ?? Date.now(),
-    };
-    dispatch({ type: initial ? 'updateProject' : 'addProject', project });
-    onClose();
-  };
-
-  return (
-    <Modal title={initial ? 'Редактировать проект' : 'Новый проект'} onClose={onClose}>
-      <form onSubmit={submit}>
-        <div className="field">
-          <label>Название</label>
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Например: Сайт для Acme" />
-        </div>
-        <div className="field">
-          <label>Клиент</label>
-          <input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Имя клиента или компании" />
-        </div>
-        <div className="field">
-          <label>Цвет</label>
-          <div className="swatches">
-            {PROJECT_COLORS.map((c) => (
-              <button
-                type="button"
-                key={c}
-                className={'swatch' + (c === color ? ' selected' : '')}
-                style={{ background: c }}
-                onClick={() => setColor(c)}
-                aria-label={`Цвет ${c}`}
-              />
-            ))}
-          </div>
-        </div>
-        <div className="field">
-          <label>Статус</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)}>
-            {(Object.keys(STATUS_LABEL) as ProjectStatus[]).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label className="row" style={{ gap: 8 }}>
-            <input
-              type="checkbox"
-              style={{ width: 'auto' }}
-              checked={useCustomRate}
-              onChange={(e) => setUseCustomRate(e.target.checked)}
-            />
-            Своя ставка для проекта
-          </label>
-          {useCustomRate ? (
-            <div className="field-row" style={{ marginTop: 6 }}>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value)}
-                  placeholder="Ставка в час"
-                />
-              </div>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-                  {CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          ) : (
-            <span className="hint">
-              Используется глобальная: {formatMoney(state.settings.globalRate, state.settings.currency)}/ч
-            </span>
-          )}
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Отмена
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
-            {initial ? 'Сохранить' : 'Создать проект'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
+import type { Project } from '../types';
 
 export default function ProjectsScreen({ onOpenProject }: { onOpenProject: (id: string) => void }) {
   const state = useAppState();
@@ -165,7 +38,11 @@ export default function ProjectsScreen({ onOpenProject }: { onOpenProject: (id: 
     return (
       <div className="project-card" key={p.id} onClick={() => onOpenProject(p.id)}>
         <div className="row">
-          <span className="dot" style={{ background: p.color }} />
+          {p.avatar ? (
+            <img className="avatar" src={p.avatar} alt="" />
+          ) : (
+            <span className="avatar avatar-empty" style={{ background: p.color }} />
+          )}
           <div className="grow">
             <b>{p.name}</b>
             {p.client && <div className="meta">{p.client}</div>}
@@ -182,26 +59,25 @@ export default function ProjectsScreen({ onOpenProject }: { onOpenProject: (id: 
             <span className="label">заработано</span>
           </div>
           <div className="stat">
-            <span className="value">
-              {formatMoney(p.rate ?? state.settings.globalRate, currency)}
-            </span>
+            <span className="value">{formatMoney(p.rate ?? state.settings.globalRate, currency)}</span>
             <span className="label">ставка/ч</span>
           </div>
         </div>
-        <div className="row" style={{ marginTop: 12, gap: 6 }} onClick={(e) => e.stopPropagation()}>
+        <div className="card-actions" onClick={(e) => e.stopPropagation()}>
           <button
-            className="btn btn-ghost"
+            className="btn btn-edit"
             onClick={() => {
               setEditing(p);
               setFormOpen(true);
             }}
           >
-            Изменить
+            <Icon name="edit" size={14} strokeWidth={1.8} /> Изменить
           </button>
           <button
-            className="btn btn-ghost"
+            className="btn btn-archive"
             onClick={() => dispatch({ type: 'setProjectArchived', id: p.id, archived: !p.archived })}
           >
+            <Icon name={p.archived ? 'restore' : 'archive'} size={14} strokeWidth={1.8} />{' '}
             {p.archived ? 'Восстановить' : 'В архив'}
           </button>
         </div>
@@ -220,7 +96,7 @@ export default function ProjectsScreen({ onOpenProject }: { onOpenProject: (id: 
             setFormOpen(true);
           }}
         >
-          + Новый проект
+          <Icon name="plus" size={15} /> Новый проект
         </button>
       </div>
 

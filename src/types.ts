@@ -1,4 +1,4 @@
-export type Currency = 'USD' | 'EUR' | 'RON' | 'MDL';
+export type Currency = 'RUB' | 'USD';
 
 export type ProjectStatus = 'active' | 'paused' | 'completed';
 
@@ -19,6 +19,8 @@ export interface Project {
   name: string;
   client: string;
   color: string;
+  /** Аватарка проекта — data URL (jpeg 128×128), опционально */
+  avatar?: string;
   /** Переопределение глобальной ставки; undefined — используется глобальная */
   rate?: number;
   /** Переопределение валюты; undefined — используется глобальная */
@@ -32,7 +34,8 @@ export interface Task {
   id: string;
   projectId: string;
   title: string;
-  tags: string[];
+  /** @deprecated тэги убраны из интерфейса; поле осталось для совместимости старых данных */
+  tags?: string[];
   /** Переопределение ставки проекта/глобальной; undefined — наследуется */
   rate?: number;
   createdAt: number;
@@ -73,7 +76,7 @@ export interface AppState {
   timer: ActiveTimer | null;
 }
 
-export const CURRENCIES: Currency[] = ['USD', 'EUR', 'RON', 'MDL'];
+export const CURRENCIES: Currency[] = ['RUB', 'USD'];
 
 export const ROUNDING_OPTIONS = [1, 5, 15, 30, 60];
 

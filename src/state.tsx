@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useReducer, type ReactNode, type Dispatch } from 'react';
+import { createContext, useContext, useEffect, useReducer, useRef, type ReactNode, type Dispatch } from 'react';
 import type { AppState, Project, Settings, Task, TimeEntry } from './types';
-import { loadState, saveState, uid } from './lib/storage';
+import { loadState, parseState, saveState, uid } from './lib/storage';
 
 export type Action =
   | { type: 'addProject'; project: Project }
@@ -17,6 +17,7 @@ export type Action =
   | { type: 'stopTimer'; note?: string }
   | { type: 'discardTimer' }
   | { type: 'setTimerNote'; note: string }
+  | { type: 'setTimerStartDate'; dateTs: number }
   | { type: 'updateSettings'; settings: Partial<Settings> }
   | { type: 'resetAll'; state: AppState };
 
@@ -114,6 +115,15 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, timer: null };
     case 'setTimerNote':
       return state.timer ? { ...state, timer: { ...state.timer, note: action.note } } : state;
+    case 'setTimerStartDate': {
+      // запись уйдёт на выбранную дату: переносим день старта, сохраняя время суток
+      const t = state.timer;
+      if (!t) return state;
+      const orig = new Date(t.firstStartedAt);
+      const d = new Date(action.dateTs);
+      d.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), 0);
+      return { ...state, timer: { ...t, firstStartedAt: d.getTime() } };
+    }
 
     case 'updateSettings':
       return { ...state, settings: { ...state.settings, ...action.settings } };
@@ -129,11 +139,46 @@ const DispatchContext = createContext<Dispatch<Action> | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
-  // персистентность: каждое изменение — в localStorage
+  // персистентность: каждое изменение — в localStorage (и в файл данных в десктопе)
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  // десктоп: при старте подхватываем файл данных, дальше слушаем внешние
+  // изменения файла (синхронизация через облачную папку с другого компьютера)
+  useEffect(() => {
+    const desktop = window.desktop;
+    if (!desktop) return;
+
+    const applyExternal = (raw: string) => {
+      const incoming = parseState(raw);
+      if (!incoming) return;
+      const current = stateRef.current;
+      // не теряем таймер, запущенный на этой машине
+      const next = !incoming.timer && current.timer ? { ...incoming, timer: current.timer } : incoming;
+      if (JSON.stringify(next) !== JSON.stringify(current)) {
+        dispatch({ type: 'resetAll', state: next });
+      }
+    };
+
+    let cancelled = false;
+    desktop.loadData().then((raw) => {
+      if (cancelled) return;
+      if (raw) {
+        applyExternal(raw);
+      } else {
+        // файла ещё нет — экспортируем текущее состояние (миграция с localStorage)
+        desktop.saveData(JSON.stringify(stateRef.current));
+      }
+    });
+    desktop.onExternalChange(applyExternal);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // применение темы
   useEffect(() => {

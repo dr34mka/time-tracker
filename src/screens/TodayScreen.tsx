@@ -1,22 +1,79 @@
-import { useMemo } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useAppDispatch, useAppState } from '../state';
 import { useNow, timerElapsed } from '../hooks';
+import { uid } from '../lib/storage';
+import Modal from '../components/Modal';
+import Select from '../components/Select';
+import DatePicker from '../components/DatePicker';
 import {
   addDays,
   currentStreak,
   dayKey,
   formatClock,
   formatDuration,
-  formatTime,
+  formatHours,
+  fromDateInputValue,
   plural,
   startOfDay,
   startOfWeek,
+  toDateInputValue,
 } from '../lib/time';
-import { computeEntry, formatMoneyByCurrency } from '../lib/money';
-import type { Currency } from '../types';
+import { computeEntry, formatMoney, formatMoneyByCurrency, resolveCurrency } from '../lib/money';
+import type { Currency, Project, Task } from '../types';
 import Icon from '../components/Icon';
+import { AnimateDigits } from '../components/AnimateDigits';
+import ProjectForm, { STATUS_LABEL } from '../components/ProjectForm';
 
 const WEEK_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+const PLACEHOLDER_TITLE = 'Новая задача';
+
+/** Поп-ап названия задачи: таймер уже идёт, пользователь просто дописывает название */
+function TaskNameModal({ task, onClose }: { task: Task; onClose: () => void }) {
+  const dispatch = useAppDispatch();
+  const [title, setTitle] = useState(task.title === PLACEHOLDER_TITLE ? '' : task.title);
+  const [dateTs, setDateTs] = useState(() => startOfDay(Date.now()));
+
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    const t = title.trim();
+    if (t) dispatch({ type: 'updateTask', task: { ...task, title: t } });
+    if (dayKey(dateTs) !== dayKey(Date.now())) {
+      dispatch({ type: 'setTimerStartDate', dateTs });
+    }
+    onClose();
+  };
+
+  return (
+    <Modal title="Над чем работаете?" onClose={onClose}>
+      <form onSubmit={save}>
+        <div className="field-row">
+          <div className="field" style={{ flex: 2 }}>
+            <label>Название задачи</label>
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Например: правки главного экрана"
+            />
+          </div>
+          <div className="field">
+            <label>Дата</label>
+            <DatePicker value={dateTs} onChange={setDateTs} />
+          </div>
+        </div>
+        <p className="hint" style={{ margin: '0 0 4px' }}>
+          Таймер уже запущен — время трекается, пока вы пишете. Запись уйдёт на выбранную дату.
+        </p>
+        <div className="modal-actions">
+          <button type="submit" className="btn btn-primary">
+            Сохранить
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 /** Кольцо прогресса сегодняшнего дня в недельной полосе */
 function TodayRing({ progress }: { progress: number }) {
@@ -24,7 +81,7 @@ function TodayRing({ progress }: { progress: number }) {
   const c = 2 * Math.PI * r;
   const filled = Math.min(1, Math.max(0, progress));
   return (
-    <svg viewBox="0 0 34 34" width="34" height="34">
+    <svg viewBox="0 0 34 34" width="100%" height="100%">
       <circle cx="17" cy="17" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="3" />
       {filled > 0 && (
         <circle
@@ -48,6 +105,10 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
   const dispatch = useAppDispatch();
   const timer = state.timer;
   const now = useNow(true);
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [formOpen, setFormOpen] = useState(false);
+  const [startProjectId, setStartProjectId] = useState('');
+  const [namingTaskId, setNamingTaskId] = useState<string | null>(null);
 
   const taskById = useMemo(() => new Map(state.tasks.map((t) => [t.id, t])), [state.tasks]);
   const projectById = useMemo(() => new Map(state.projects.map((p) => [p.id, p])), [state.projects]);
@@ -56,25 +117,20 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
   const activeProject = timer ? projectById.get(timer.projectId) : undefined;
   const liveMs = timer ? timerElapsed(timer, now) : 0;
 
-  // записи за сегодня
   const todayStart = startOfDay(now);
-  const todayEntries = useMemo(
-    () => state.entries.filter((e) => e.end >= todayStart).sort((a, b) => b.end - a.end),
-    [state.entries, todayStart],
-  );
-
   const todayTotals = useMemo(() => {
     let durationMs = 0;
     const money: Partial<Record<Currency, number>> = {};
-    for (const e of todayEntries) {
+    for (const e of state.entries) {
+      if (e.end < todayStart) continue;
       const c = computeEntry(e, taskById, projectById, state.settings);
       durationMs += c.durationMs;
       money[c.currency] = (money[c.currency] ?? 0) + c.amount;
     }
     return { durationMs, money };
-  }, [todayEntries, taskById, projectById, state.settings]);
+  }, [state.entries, todayStart, taskById, projectById, state.settings]);
 
-  // отслеженное время по дням (для стрика и недельной полосы); активный таймер учитываем в «сегодня»
+  // отслеженное время по дням (для стрика и недельной полосы)
   const msByDay = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of state.entries) {
@@ -100,32 +156,57 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
       const ts = addDays(monday, i);
       const isToday = dayKey(ts) === dayKey(now);
       const ms = (msByDay.get(dayKey(ts)) ?? 0) + (isToday ? liveMs : 0);
-      return { label, ts, isToday, done: ms >= goalMs, ms, future: ts > now };
+      return { label, ts, isToday, done: ms >= goalMs, ms };
     });
   }, [now, msByDay, liveMs, goalMs]);
 
-  // быстрый старт: недавние задачи (по последней записи), затем новые задачи
-  const recentTasks = useMemo(() => {
-    const lastUse = new Map<string, number>();
+  // сводка по проектам для карточек
+  const totals = useMemo(() => {
+    const map = new Map<string, { durationMs: number; amount: number }>();
     for (const e of state.entries) {
-      lastUse.set(e.taskId, Math.max(lastUse.get(e.taskId) ?? 0, e.end));
+      const c = computeEntry(e, taskById, projectById, state.settings);
+      const t = map.get(e.projectId) ?? { durationMs: 0, amount: 0 };
+      t.durationMs += c.durationMs;
+      t.amount += c.amount;
+      map.set(e.projectId, t);
     }
-    return state.tasks
-      .filter((t) => {
-        const p = projectById.get(t.projectId);
-        return p && !p.archived && p.status === 'active';
-      })
-      .sort((a, b) => (lastUse.get(b.id) ?? b.createdAt) - (lastUse.get(a.id) ?? a.createdAt))
-      .slice(0, 6);
-  }, [state.tasks, state.entries, projectById]);
+    return map;
+  }, [state.entries, taskById, projectById, state.settings]);
+
+  const projects = state.projects.filter((p) => !p.archived);
+
+  // старт одним кликом: создаётся задача в выбранном проекте, таймер запускается,
+  // название дописывается в поп-апе — время уже идёт
+  const startNew = () => {
+    const project = projects.find((p) => p.id === startProjectId) ?? projects[0];
+    if (!project) return;
+    const task: Task = {
+      id: uid(),
+      projectId: project.id,
+      title: PLACEHOLDER_TITLE,
+      createdAt: Date.now(),
+    };
+    dispatch({ type: 'addTask', task });
+    dispatch({ type: 'startTimer', taskId: task.id, projectId: project.id });
+    setNamingTaskId(task.id);
+  };
+
+  const renderAvatar = (p: Project, size = 48) =>
+    p.avatar ? (
+      <img className="avatar" src={p.avatar} alt="" style={{ width: size, height: size }} />
+    ) : (
+      <span className="avatar avatar-empty" style={{ background: p.color, width: size, height: size }} />
+    );
 
   return (
     <>
       <div className="screen-head">
-        <h1>Сегодня</h1>
-        <span className="meta">
-          {formatDuration(todayTotals.durationMs)} · <b className="money">{formatMoneyByCurrency(todayTotals.money)}</b>
-        </span>
+        <h1>Time Tracker</h1>
+        <div className="day-totals">
+          <span className="value">{formatDuration(todayTotals.durationMs)}</span>
+          <span className="sep">·</span>
+          <span className="value">{formatMoneyByCurrency(todayTotals.money)}</span>
+        </div>
       </div>
 
       <div className={'timer-hero' + (timer?.running ? ' live' : '')}>
@@ -139,7 +220,9 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
               {activeTask?.title ?? 'Задача'}
               <span className="meta"> · {activeProject?.name}</span>
             </div>
-            <div className={'timer-clock' + (timer.running ? '' : ' paused')}>{formatClock(liveMs)}</div>
+            <div className={'timer-clock' + (timer.running ? '' : ' paused')}>
+              <AnimateDigits value={formatClock(liveMs)} gap={0} digitClassName="clock-digit" />
+            </div>
             {!timer.running && <span className="badge">на паузе</span>}
             <div className="timer-controls">
               {timer.running ? (
@@ -152,7 +235,7 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
                 </button>
               )}
               <button className="btn btn-primary" onClick={() => dispatch({ type: 'stopTimer' })}>
-                <Icon name="stop" size={15} /> Стоп и сохранить
+                <Icon name="stop" size={15} /> Остановить
               </button>
               <button
                 className="btn btn-ghost btn-danger"
@@ -173,29 +256,131 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
           </>
         ) : (
           <>
-            <div className="timer-clock paused">0:00:00</div>
-            <p className="meta" style={{ margin: '4px 0 0' }}>
-              Таймер не запущен — выберите задачу ниже или нажмите <kbd>Space</kbd>, чтобы продолжить последнюю
-            </p>
+            <div className="timer-clock paused">
+              <AnimateDigits value="00:00" gap={0} digitClassName="clock-digit" />
+            </div>
+            {projects.length > 0 ? (
+              <div className="quick-row">
+                <Select
+                  value={startProjectId || projects[0].id}
+                  onChange={setStartProjectId}
+                  minWidth={200}
+                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                />
+                <button className="btn btn-primary" onClick={startNew}>
+                  <Icon name="play" size={15} /> Старт
+                </button>
+              </div>
+            ) : (
+              <div className="quick-row">
+                <button className="btn btn-primary" onClick={() => setFormOpen(true)}>
+                  <Icon name="plus" size={14} /> Создать первый проект
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
 
       <div className="section">
+        <div className="row" style={{ marginBottom: 16 }}>
+          <h1 className="grow">Проекты</h1>
+          <div className="view-toggle">
+            <button
+              className={'btn btn-icon btn-ghost' + (view === 'grid' ? ' selected' : '')}
+              title="Карточки"
+              onClick={() => setView('grid')}
+            >
+              <Icon name="grid" size={16} />
+            </button>
+            <button
+              className={'btn btn-icon btn-ghost' + (view === 'list' ? ' selected' : '')}
+              title="Список"
+              onClick={() => setView('list')}
+            >
+              <Icon name="list" size={16} />
+            </button>
+          </div>
+          <button className="btn" onClick={() => setFormOpen(true)}>
+            <Icon name="plus" size={14} /> Проект
+          </button>
+        </div>
+
+        {projects.length === 0 ? (
+          <div className="card empty">
+            <div className="big">🚀</div>
+            Создайте первый проект — внутри добавите задачи и запустите таймер.
+          </div>
+        ) : view === 'grid' ? (
+          <div className="project-grid">
+            {projects.map((p) => {
+              const t = totals.get(p.id);
+              const currency = resolveCurrency(p, state.settings);
+              return (
+                <div className="project-card" key={p.id} onClick={() => onOpenProject(p.id)}>
+                  <div className="row">
+                    {renderAvatar(p)}
+                    <div className="grow">
+                      <b>{p.name}</b>
+                      {p.client && <div className="meta">{p.client}</div>}
+                    </div>
+                    <span className={'badge' + (p.status === 'active' ? ' active' : '')}>{STATUS_LABEL[p.status]}</span>
+                  </div>
+                  <div className="stats">
+                    <div className="stat">
+                      <span className="value">{formatHours(t?.durationMs ?? 0)}</span>
+                      <span className="label">отработано</span>
+                    </div>
+                    <div className="stat">
+                      <span className="value">{formatMoneyByCurrency({ [currency]: t?.amount ?? 0 })}</span>
+                      <span className="label">заработано</span>
+                    </div>
+                    <div className="stat">
+                      <span className="value">{formatMoney(p.rate ?? state.settings.globalRate, currency)}</span>
+                      <span className="label">ставка/ч</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="card" style={{ paddingTop: 6, paddingBottom: 6 }}>
+            {projects.map((p) => {
+              const t = totals.get(p.id);
+              const currency = resolveCurrency(p, state.settings);
+              return (
+                <div className="list-row" key={p.id} style={{ cursor: 'pointer' }} onClick={() => onOpenProject(p.id)}>
+                  {renderAvatar(p, 40)}
+                  <div className="grow">
+                    <div>{p.name}</div>
+                    {p.client && <div className="meta">{p.client}</div>}
+                  </div>
+                  <span className={'badge' + (p.status === 'active' ? ' active' : '')}>{STATUS_LABEL[p.status]}</span>
+                  <span className="mono">{formatHours(t?.durationMs ?? 0)}</span>
+                  <span className="money">{formatMoneyByCurrency({ [currency]: t?.amount ?? 0 })}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="section">
+        <h2 style={{ marginBottom: 16 }}>Серия проектов</h2>
         <div className="goal-card">
           <div className="streak-row">
             <div className="flame-badge">
-              <Icon name="flame" size={24} />
+              <Icon name="flame" size={20} />
             </div>
             <div>
-              <span className="label-mono">Серия</span>
               <div className="streak-num">
                 {streak}
                 <small>{plural(streak, ['день', 'дня', 'дней'])}</small>
               </div>
             </div>
             <div className="streak-side">
-              <Icon name="timer" size={22} strokeWidth={1.8} />
+              <Icon name="timer" size={18} strokeWidth={1.8} />
             </div>
           </div>
 
@@ -211,7 +396,10 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
                     <TodayRing progress={d.ms / goalMs} />
                   </div>
                 ) : (
-                  <div className="day-dot" style={d.ms > 0 ? { background: 'color-mix(in srgb, var(--accent) 22%, var(--surface-2))' } : undefined} />
+                  <div
+                    className="day-dot"
+                    style={d.ms > 0 ? { background: 'color-mix(in srgb, var(--accent) 22%, var(--surface-2))' } : undefined}
+                  />
                 )}
                 <span className="label-mono" style={d.isToday ? { color: 'var(--ink)' } : undefined}>
                   {d.label}
@@ -234,94 +422,10 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
         </div>
       </div>
 
-      <div className="section">
-        <span className="label-mono">Быстрый старт</span>
-        {recentTasks.length === 0 ? (
-          <div className="card empty">
-            <div className="big">🚀</div>
-            Создайте проект и добавьте первую задачу — таймер запускается одним кликом.
-          </div>
-        ) : (
-          <div className="card" style={{ paddingTop: 6, paddingBottom: 6 }}>
-            {recentTasks.map((task) => {
-              const project = projectById.get(task.projectId)!;
-              const isRunning = timer?.taskId === task.id && timer.running;
-              return (
-                <div className="list-row" key={task.id}>
-                  <button
-                    className={'btn btn-play' + (isRunning ? ' running' : '')}
-                    title={isRunning ? 'Пауза' : 'Старт'}
-                    onClick={() =>
-                      isRunning
-                        ? dispatch({ type: 'pauseTimer' })
-                        : timer?.taskId === task.id
-                          ? dispatch({ type: 'resumeTimer' })
-                          : dispatch({ type: 'startTimer', taskId: task.id, projectId: task.projectId })
-                    }
-                  >
-                    <Icon name={isRunning ? 'pause' : 'play'} size={15} />
-                  </button>
-                  <div className="grow">
-                    <div>{task.title}</div>
-                    <div className="meta row" style={{ gap: 6, flexWrap: 'wrap' }}>
-                      <span className="dot" style={{ background: project.color, width: 7, height: 7 }} />
-                      <span style={{ whiteSpace: 'nowrap' }}>{project.name}</span>
-                      {task.tags.map((t) => (
-                        <span className="tag" key={t}>
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <button className="btn btn-ghost" onClick={() => onOpenProject(project.id)}>
-                    Открыть →
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="section">
-        <span className="label-mono">Записи за сегодня</span>
-        {todayEntries.length === 0 ? (
-          <div className="card empty">Сегодня время ещё не отслеживалось.</div>
-        ) : (
-          <div className="card" style={{ paddingTop: 6, paddingBottom: 6 }}>
-            {todayEntries.map((e) => {
-              const task = taskById.get(e.taskId);
-              const project = projectById.get(e.projectId);
-              const c = computeEntry(e, taskById, projectById, state.settings);
-              return (
-                <div className="list-row" key={e.id}>
-                  <span className="dot" style={{ background: project?.color ?? 'var(--muted)' }} />
-                  <div className="grow">
-                    <div>
-                      {task?.title ?? 'Удалённая задача'} <span className="meta">· {project?.name}</span>
-                    </div>
-                    <div className="meta">
-                      {formatTime(e.start)}–{formatTime(e.end)}
-                      {e.note ? ` · ${e.note}` : ''}
-                    </div>
-                  </div>
-                  <span className="mono">{formatDuration(e.durationMs)}</span>
-                  <span className="money">{formatMoneyByCurrency({ [c.currency]: c.amount })}</span>
-                  <button
-                    className="btn btn-ghost btn-icon btn-danger"
-                    title="Удалить запись"
-                    onClick={() => {
-                      if (confirm('Удалить запись времени?')) dispatch({ type: 'deleteEntry', id: e.id });
-                    }}
-                  >
-                    <Icon name="x" size={15} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {formOpen && <ProjectForm onClose={() => setFormOpen(false)} />}
+      {namingTaskId && taskById.get(namingTaskId) && (
+        <TaskNameModal task={taskById.get(namingTaskId)!} onClose={() => setNamingTaskId(null)} />
+      )}
     </>
   );
 }
