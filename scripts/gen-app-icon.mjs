@@ -1,7 +1,8 @@
 /* Генерация мастер-иконки приложения (1024×1024 PNG).
-   Дизайн повторяет трей и приложение: тёмный скруглённый квадрат с мягким
-   свечением, белый секундомер, зелёный play. В .icns собирается в npm run icons
-   (sips + iconutil, только macOS).
+   Глиф — контур часов (icons8 "Clock / Material Outlined", 24×24 viewBox:
+   ~/Downloads/icons8-clock-material-outlined/icons8-clock-192.svg), белым
+   по зелёному фону. В .icns собирается в npm run icons (sips + iconutil,
+   только macOS).
    Запуск: node scripts/gen-app-icon.mjs <выходной .png> */
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -50,25 +51,19 @@ function encodePng(size, rgba) {
   ]);
 }
 
-/* ---------- сцена ---------- */
+/* ---------- геометрия ---------- */
 
 const SIZE = 1024;
-const INK = [245, 245, 247];
-const ACCENT = [48, 209, 88];
-const GLOW_YELLOW = [255, 214, 10];
+const WHITE = [255, 255, 255];
+// зелёный градиент в стиле акцента приложения (--accent / --accent-2 / light --accent)
+const GREEN_TOP = [64, 224, 135];
+const GREEN_BOTTOM = [15, 138, 67];
 
 function inRoundedRect(x, y, x1, y1, x2, y2, r) {
   if (x < x1 || x > x2 || y < y1 || y > y2) return false;
   const cx = Math.min(Math.max(x, x1 + r), x2 - r);
   const cy = Math.min(Math.max(y, y1 + r), y2 - r);
   return (x - cx) ** 2 + (y - cy) ** 2 <= r * r || (x >= x1 + r && x <= x2 - r) || (y >= y1 + r && y <= y2 - r);
-}
-
-function inTriangle(px, py, [ax, ay], [bx, by], [cx, cy]) {
-  const s1 = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
-  const s2 = (cx - bx) * (py - by) - (cy - by) * (px - bx);
-  const s3 = (ax - cx) * (py - cy) - (ay - cy) * (px - cx);
-  return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
 }
 
 function glow(x, y, gx, gy, radius, strength) {
@@ -78,30 +73,60 @@ function glow(x, y, gx, gy, radius, strength) {
   return strength * t * t;
 }
 
+// стрелки часов из icons8-clock-192.svg (viewBox 0 0 24 24), путь
+// "M 11 6 L 11 12.414062 L 15.292969 16.707031 L 16.707031 15.292969 L 13 11.585938 L 13 6 z"
+const HAND_POLY = [
+  [11, 6],
+  [11, 12.414062],
+  [15.292969, 16.707031],
+  [16.707031, 15.292969],
+  [13, 11.585938],
+  [13, 6],
+];
+
+function inPolygon(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    const hit = yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+    if (hit) inside = !inside;
+  }
+  return inside;
+}
+
+// 24-юнитная сетка SVG вписана в 1024px канвас: кольцо (r=10..12) диаметром ~600px
+const SCALE = 30;
+const CX = 512;
+const CY = 512;
+function toPx([sx, sy]) {
+  return [CX + (sx - 12) * SCALE, CY + (sy - 12) * SCALE];
+}
+const HAND_PX = HAND_POLY.map(toPx);
+
+function inClockGlyph(x, y) {
+  const d = Math.hypot(x - CX, y - CY);
+  if (Math.abs(d - 9 * SCALE) <= SCALE) return true; // кольцо: между r=8 и r=10
+  return inPolygon(x, y, HAND_PX);
+}
+
 /** Цвет сабпикселя [r,g,b,a] (straight alpha) */
 function shade(x, y) {
-  // корпус секундомера
-  const ring = Math.abs(Math.hypot(x - 512, y - 585) - 255) <= 27;
-  const crown = inRoundedRect(x, y, 472, 240, 552, 306, 18);
-  if (ring || crown) return [...INK, 255];
-  // play-триугольник
-  if (inTriangle(x, y, [445, 480], [445, 690], [640, 585])) return [...ACCENT, 255];
+  if (inClockGlyph(x, y)) return [...WHITE, 255];
 
   // подложка: скруглённый квадрат
   if (!inRoundedRect(x, y, 100, 100, 924, 924, 186)) return [0, 0, 0, 0];
-  const t = (y - 100) / 824;
-  let r = 33 + (11 - 33) * t;
-  let g = 33 + (11 - 33) * t;
-  let b = 38 + (13 - 38) * t;
-  // свечения: зелёное сверху слева, жёлтое справа (как фон приложения),
-  // плюс зелёный ореол за триугольником
-  const gGreen = glow(x, y, 400, 260, 480, 0.16);
-  const gYellow = glow(x, y, 830, 180, 380, 0.07);
-  const gHalo = glow(x, y, 525, 585, 215, 0.3);
-  r += ACCENT[0] * (gGreen + gHalo) + GLOW_YELLOW[0] * gYellow;
-  g += ACCENT[1] * (gGreen + gHalo) + GLOW_YELLOW[1] * gYellow;
-  b += ACCENT[2] * (gGreen + gHalo) + GLOW_YELLOW[2] * gYellow;
-  return [Math.min(255, r), Math.min(255, g), Math.min(255, b), 255];
+  const t = (x + y - 200) / 1648; // диагональ top-left → bottom-right
+  let r = GREEN_TOP[0] + (GREEN_BOTTOM[0] - GREEN_TOP[0]) * t;
+  let g = GREEN_TOP[1] + (GREEN_BOTTOM[1] - GREEN_TOP[1]) * t;
+  let b = GREEN_TOP[2] + (GREEN_BOTTOM[2] - GREEN_TOP[2]) * t;
+  // мягкий блик сверху слева + лёгкая тень позади циферблата для глубины
+  const highlight = glow(x, y, 330, 300, 520, 0.16);
+  const shadow = glow(x, y, 620, 660, 420, 0.16);
+  r += (255 - r) * highlight - r * shadow * 0.5;
+  g += (255 - g) * highlight - g * shadow * 0.5;
+  b += (255 - b) * highlight - b * shadow * 0.5;
+  return [Math.min(255, Math.max(0, r)), Math.min(255, Math.max(0, g)), Math.min(255, Math.max(0, b)), 255];
 }
 
 const rgba = Buffer.alloc(SIZE * SIZE * 4);
