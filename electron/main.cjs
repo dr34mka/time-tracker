@@ -1,4 +1,15 @@
-const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  Tray,
+  nativeImage,
+  nativeTheme,
+  screen,
+  shell,
+  ipcMain,
+  dialog,
+} = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -106,6 +117,191 @@ function registerIpc(getWin) {
 }
 
 let mainWindow = null;
+let isQuitting = false;
+
+/* ===== Меню-бар: иконка с таймером и popover =====
+   Рендерер главного окна шлёт снапшот таймера ('tray:state'), главный процесс
+   сам тикает раз в секунду и обновляет текст рядом с иконкой. Клик по иконке —
+   компактный popover под меню-баром с паузой/стопом и переходом в приложение. */
+
+const POPOVER_WIDTH = 300;
+
+let tray = null;
+let popover = null;
+let traySnapshot = { theme: 'dark', timer: null };
+let trayTick = null;
+let lastPopoverHide = 0;
+
+function trayIcon(name) {
+  return nativeImage.createFromPath(path.join(__dirname, 'assets', `tray${name}Template.png`));
+}
+
+function formatTrayClock(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function timerElapsedMs(t, now) {
+  return t.accumulatedMs + (t.running ? Math.max(0, now - t.startedAt) : 0);
+}
+
+function updateTray() {
+  if (!tray) return;
+  const t = traySnapshot.timer;
+  if (!t) {
+    tray.setImage(trayIcon('Idle'));
+    tray.setTitle('');
+    tray.setToolTip('Time Tracker — таймер не запущен');
+    return;
+  }
+  tray.setImage(trayIcon(t.running ? 'Run' : 'Pause'));
+  tray.setTitle(` ${formatTrayClock(timerElapsedMs(t, Date.now()))}`, {
+    fontType: 'monospacedDigit',
+  });
+  tray.setToolTip(`${t.projectName} — ${t.taskTitle}`);
+}
+
+function syncTrayTick() {
+  const shouldTick = Boolean(traySnapshot.timer?.running);
+  if (shouldTick && !trayTick) trayTick = setInterval(updateTray, 1000);
+  if (!shouldTick && trayTick) {
+    clearInterval(trayTick);
+    trayTick = null;
+  }
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  } else {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+function createPopover() {
+  popover = new BrowserWindow({
+    width: POPOVER_WIDTH,
+    height: 178,
+    show: false,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: true,
+    roundedCorners: true,
+    vibrancy: 'popover',
+    visualEffectState: 'active',
+    backgroundColor: '#00000000',
+    hiddenInMissionControl: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  // поверх всего и во всех рабочих пространствах, включая fullscreen-приложения
+  popover.setAlwaysOnTop(true, 'pop-up-menu');
+  popover.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  popover.on('blur', () => {
+    if (popover && !popover.isDestroyed()) {
+      lastPopoverHide = Date.now();
+      popover.hide();
+    }
+  });
+
+  const devUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devUrl) {
+    popover.loadURL(new URL('popover.html', devUrl).toString());
+  } else {
+    popover.loadFile(path.join(__dirname, '../dist/popover.html'));
+  }
+}
+
+function togglePopover(trayBounds) {
+  if (!popover || popover.isDestroyed()) createPopover();
+  if (popover.isVisible()) {
+    popover.hide();
+    return;
+  }
+  // клик по иконке при открытом popover'е: blur уже спрятал окно —
+  // не открываем его тут же заново
+  if (Date.now() - lastPopoverHide < 300) return;
+  // по центру под иконкой трея, не вылезая за край экрана
+  const display = screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y });
+  const work = display.workArea;
+  const [w] = popover.getSize();
+  let x = Math.round(trayBounds.x + trayBounds.width / 2 - w / 2);
+  x = Math.min(Math.max(x, work.x + 8), work.x + work.width - w - 8);
+  const y = Math.round(trayBounds.y + trayBounds.height + 5);
+  popover.setPosition(x, y, false);
+  popover.show();
+  popover.webContents.send('popover:shown');
+}
+
+function createTray() {
+  tray = new Tray(trayIcon('Idle'));
+  tray.setIgnoreDoubleClickEvents(true);
+  tray.on('click', (_event, bounds) => togglePopover(bounds));
+  tray.on('right-click', () => {
+    tray.popUpContextMenu(
+      Menu.buildFromTemplate([
+        { label: 'Открыть Time Tracker', click: showMainWindow },
+        { type: 'separator' },
+        { label: 'Завершить', role: 'quit' },
+      ]),
+    );
+  });
+  updateTray();
+}
+
+function registerTrayIpc() {
+  ipcMain.on('tray:state', (_e, snapshot) => {
+    traySnapshot = snapshot;
+    nativeTheme.themeSource = snapshot.theme; // vibrancy popover'а следует теме приложения
+    updateTray();
+    syncTrayTick();
+    if (popover && !popover.isDestroyed()) {
+      popover.webContents.send('tray:state-push', snapshot);
+    }
+  });
+
+  ipcMain.handle('tray:get-state', () => traySnapshot);
+
+  // команды из popover'а исполняет рендерер главного окна (там живёт стор)
+  ipcMain.on('popover:command', (_e, cmd) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('timer:command', cmd);
+    }
+  });
+
+  ipcMain.on('popover:open-app', () => {
+    if (popover && !popover.isDestroyed()) popover.hide();
+    showMainWindow();
+  });
+
+  ipcMain.on('popover:hide', () => {
+    if (popover && !popover.isDestroyed()) popover.hide();
+  });
+
+  ipcMain.on('popover:resize', (_e, height) => {
+    if (popover && !popover.isDestroyed()) {
+      const [x, y] = popover.getPosition();
+      popover.setBounds({ x, y, width: POPOVER_WIDTH, height: Math.round(height) });
+    }
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -136,6 +332,14 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  // macOS: закрытие окна прячет его — приложение (таймер, трей) живёт дальше
+  mainWindow.on('close', (e) => {
+    if (process.platform === 'darwin' && !isQuitting) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   watchDataDir(mainWindow);
 }
 
@@ -144,15 +348,18 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    showMainWindow();
   });
 
   app.whenReady().then(() => {
     registerIpc(() => mainWindow);
+    registerTrayIpc();
     createWindow();
+    if (process.platform === 'darwin') createTray();
+  });
+
+  app.on('before-quit', () => {
+    isQuitting = true;
   });
 
   app.on('window-all-closed', () => {
@@ -160,6 +367,6 @@ if (!gotLock) {
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    showMainWindow();
   });
 }

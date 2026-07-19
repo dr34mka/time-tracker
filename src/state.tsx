@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useReducer, useRef, type ReactNode, type Dispatch } from 'react';
 import type { AppState, Project, Settings, Task, TimeEntry } from './types';
 import { loadState, parseState, saveState, uid } from './lib/storage';
+import { resolveCurrency, resolveRate } from './lib/money';
 
 export type Action =
   | { type: 'addProject'; project: Project }
@@ -184,6 +185,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.dataset.theme = state.settings.theme;
   }, [state.settings.theme]);
+
+  // десктоп: снапшот таймера для меню-бара (иконка трея + popover)
+  useEffect(() => {
+    const desktop = window.desktop;
+    if (!desktop?.setTrayState) return;
+    const t = state.timer;
+    const project = t ? state.projects.find((p) => p.id === t.projectId) : undefined;
+    const task = t ? state.tasks.find((k) => k.id === t.taskId) : undefined;
+    desktop.setTrayState({
+      theme: state.settings.theme,
+      timer: t
+        ? {
+            running: t.running,
+            startedAt: t.startedAt,
+            accumulatedMs: t.accumulatedMs,
+            projectName: project?.name ?? 'Проект',
+            projectColor: project?.color ?? '#30d158',
+            taskTitle: task?.title ?? 'Задача',
+            rate: resolveRate(task, project, state.settings),
+            currency: resolveCurrency(project, state.settings),
+            roundingMinutes: state.settings.roundingMinutes,
+          }
+        : null,
+    });
+  }, [state.timer, state.projects, state.tasks, state.settings]);
+
+  // десктоп: команды таймера из popover'а меню-бара
+  useEffect(() => {
+    const desktop = window.desktop;
+    if (!desktop?.onTimerCommand) return;
+    return desktop.onTimerCommand((cmd) => {
+      if (cmd === 'pause') dispatch({ type: 'pauseTimer' });
+      else if (cmd === 'resume') dispatch({ type: 'resumeTimer' });
+      else if (cmd === 'stop') dispatch({ type: 'stopTimer' });
+    });
+  }, []);
 
   return (
     <StateContext.Provider value={state}>

@@ -1,0 +1,203 @@
+/* Popover меню-бара: контент поверх системной vibrancy, фон окна прозрачный */
+
+:root,
+:root[data-theme='dark'] {
+  --ink: #f5f5f7;
+  --ink-2: #b9b9c1;
+  --muted: #8a8a93;
+  --hairline: rgba(255, 255, 255, 0.1);
+  --accent: #30d158;
+  --accent-ink: #04150a;
+  --danger: #ff6961;
+  --danger-bg: rgba(255, 105, 97, 0.16);
+  --btn-bg: rgba(255, 255, 255, 0.09);
+  --btn-bg-hover: rgba(255, 255, 255, 0.16);
+}
+:root[data-theme='light'] {
+  --ink: #101012;
+  --ink-2: #4c4f4d;
+  --muted: #82858a;
+  --hairline: rgba(11, 11, 11, 0.1);
+  --accent: #0f8a43;
+  --accent-ink: #ffffff;
+  --danger: #c73535;
+  --danger-bg: rgba(208, 59, 59, 0.12);
+  --btn-bg: rgba(11, 11, 11, 0.06);
+  --btn-bg-hover: rgba(11, 11, 11, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: transparent;
+  font-family: 'Geist Mono', ui-monospace, 'Cascadia Mono', monospace;
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+.popover {
+  padding: 14px 16px 14px;
+  animation: pop-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-7px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- активный таймер --- */
+
+.popover-project {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.popover-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.popover-project-name {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.popover-task {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.popover-clock {
+  margin-top: 10px;
+  font-family: 'Fira Sans Extra Condensed', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.popover-clock.is-paused {
+  color: var(--ink-2);
+}
+
+.popover-money {
+  margin-top: 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.popover-paused-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-2);
+  border: 1px solid var(--hairline);
+  border-radius: 99px;
+  padding: 2.5px 7px;
+}
+
+.popover-actions {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popover-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--btn-bg);
+  transition: background 0.12s, transform 0.12s;
+}
+.popover-btn:hover {
+  background: var(--btn-bg-hover);
+}
+.popover-btn:active {
+  transform: scale(0.94);
+}
+.popover-btn.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.popover-btn.primary:hover {
+  filter: brightness(1.08);
+}
+.popover-btn.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.popover-open {
+  margin-left: auto;
+  border: none;
+  border-radius: 99px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  background: var(--btn-bg);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.popover-open:hover {
+  background: var(--btn-bg-hover);
+  color: var(--ink);
+}
+.popover-open.wide {
+  margin: 0;
+  width: 100%;
+  padding: 9px 14px;
+}
+
+/* --- таймер не запущен --- */
+
+.popover-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 2px;
+  text-align: center;
+}
+.popover-idle-icon {
+  color: var(--muted);
+}
+.popover-idle-text {
+  color: var(--ink-2);
+  margin-bottom: 4px;
+}
