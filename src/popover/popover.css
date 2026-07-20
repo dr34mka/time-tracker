@@ -44,12 +44,13 @@ body {
 
 .popover {
   padding: 14px 16px 14px;
-  animation: pop-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  /* длительность в паре с фейдом окна (180мс в main.cjs) */
+  animation: pop-in 0.28s cubic-bezier(0.21, 0.61, 0.35, 1);
 }
 @keyframes pop-in {
   from {
     opacity: 0;
-    transform: translateY(-7px) scale(0.98);
+    transform: translateY(-10px) scale(0.97);
   }
   to {
     opacity: 1;

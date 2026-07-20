@@ -147,6 +147,37 @@ let popover = null;
 let traySnapshot = { theme: 'dark', timer: null };
 let trayTick = null;
 let lastPopoverHide = 0;
+let popoverFade = null;
+
+/** Плавная смена прозрачности окна popover'а (ease-out cubic) */
+function fadePopover(to, ms, done) {
+  if (!popover || popover.isDestroyed()) return;
+  if (popoverFade) clearInterval(popoverFade);
+  const from = popover.getOpacity();
+  const start = Date.now();
+  popoverFade = setInterval(() => {
+    if (!popover || popover.isDestroyed()) {
+      clearInterval(popoverFade);
+      popoverFade = null;
+      return;
+    }
+    const t = Math.min(1, (Date.now() - start) / ms);
+    popover.setOpacity(from + (to - from) * (1 - (1 - t) ** 3));
+    if (t >= 1) {
+      clearInterval(popoverFade);
+      popoverFade = null;
+      if (done) done();
+    }
+  }, 16);
+}
+
+function hidePopover() {
+  if (!popover || popover.isDestroyed() || !popover.isVisible()) return;
+  lastPopoverHide = Date.now();
+  fadePopover(0, 120, () => {
+    if (popover && !popover.isDestroyed()) popover.hide();
+  });
+}
 
 function trayIcon(name) {
   return nativeImage.createFromPath(path.join(__dirname, 'assets', `tray${name}Template.png`));
@@ -230,12 +261,7 @@ function createPopover() {
   // поверх всего и во всех рабочих пространствах, включая fullscreen-приложения
   popover.setAlwaysOnTop(true, 'pop-up-menu');
   popover.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  popover.on('blur', () => {
-    if (popover && !popover.isDestroyed()) {
-      lastPopoverHide = Date.now();
-      popover.hide();
-    }
-  });
+  popover.on('blur', hidePopover);
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) {
@@ -248,7 +274,7 @@ function createPopover() {
 function togglePopover(trayBounds) {
   if (!popover || popover.isDestroyed()) createPopover();
   if (popover.isVisible()) {
-    popover.hide();
+    hidePopover();
     return;
   }
   // клик по иконке при открытом popover'е: blur уже спрятал окно —
@@ -262,8 +288,11 @@ function togglePopover(trayBounds) {
   x = Math.min(Math.max(x, work.x + 8), work.x + work.width - w - 8);
   const y = Math.round(trayBounds.y + trayBounds.height + 5);
   popover.setPosition(x, y, false);
+  // мягкое появление: окно показываем прозрачным и растворяем внутрь
+  popover.setOpacity(0);
   popover.show();
   popover.webContents.send('popover:shown');
+  fadePopover(1, 180);
 }
 
 function createTray() {
@@ -303,13 +332,11 @@ function registerTrayIpc() {
   });
 
   ipcMain.on('popover:open-app', () => {
-    if (popover && !popover.isDestroyed()) popover.hide();
+    hidePopover();
     showMainWindow();
   });
 
-  ipcMain.on('popover:hide', () => {
-    if (popover && !popover.isDestroyed()) popover.hide();
-  });
+  ipcMain.on('popover:hide', hidePopover);
 
   ipcMain.on('popover:resize', (_e, height) => {
     if (popover && !popover.isDestroyed()) {
