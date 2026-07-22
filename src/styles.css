@@ -241,6 +241,92 @@ kbd {
   }
 }
 
+/* ===== Баннер обновления ===== */
+.update-banner {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 8px 8px 12px;
+  background: var(--surface-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  animation: update-in 0.32s cubic-bezier(0.21, 0.61, 0.35, 1);
+}
+@keyframes update-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.update-banner-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.update-banner-text {
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.update-banner-text b {
+  font-weight: 600;
+}
+.update-banner-btn {
+  flex: none;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.update-banner-btn:hover {
+  filter: brightness(1.08);
+}
+.update-banner-x {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  color: var(--muted);
+  background: none;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.update-banner-x:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
 /* ===== Анимированные цифры таймера ===== */
 .animate-digits {
   display: flex;

@@ -30,4 +30,10 @@ contextBridge.exposeInMainWorld('desktop', {
   popoverResize: (height) => ipcRenderer.send('popover:resize', height),
   popoverHide: () => ipcRenderer.send('popover:hide'),
   openApp: () => ipcRenderer.send('popover:open-app'),
+
+  // обновления (уведомление + ссылка на скачивание)
+  getUpdate: () => ipcRenderer.invoke('update:get'),
+  onUpdateAvailable: (cb) => subscribe('update:available', cb),
+  downloadUpdate: () => ipcRenderer.send('update:download'),
+  appVersion: () => ipcRenderer.invoke('app:version'),
 });

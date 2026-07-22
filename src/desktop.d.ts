@@ -22,6 +22,13 @@ export interface TraySnapshot {
 
 export type TimerCommand = 'pause' | 'resume' | 'stop';
 
+/** Доступное обновление (GitHub Releases) */
+export interface UpdateInfo {
+  version: string;
+  notesUrl: string;
+  downloadUrl: string;
+}
+
 /** Мост в главный процесс Electron (electron/preload.cjs). В браузере отсутствует. */
 export interface DesktopBridge {
   loadData(): Promise<string | null>;
@@ -44,6 +51,12 @@ export interface DesktopBridge {
   popoverResize(height: number): void;
   popoverHide(): void;
   openApp(): void;
+
+  /** Обновления: уведомление и ссылка на скачивание */
+  getUpdate(): Promise<UpdateInfo | null>;
+  onUpdateAvailable(cb: (info: UpdateInfo) => void): () => void;
+  downloadUpdate(): void;
+  appVersion(): Promise<string>;
 }
 
 declare global {

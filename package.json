@@ -14,7 +14,9 @@
     "app:dev": "VITE_DEV_SERVER_URL=http://localhost:5173/ electron .",
     "icons": "node scripts/gen-tray-icons.mjs && node scripts/gen-app-icon.mjs build/icon_1024.png && rm -rf build/icon.iconset && mkdir -p build/icon.iconset && for s in 16 32 128 256 512; do sips -z $s $s build/icon_1024.png --out build/icon.iconset/icon_${s}x${s}.png >/dev/null; sips -z $((s*2)) $((s*2)) build/icon_1024.png --out build/icon.iconset/icon_${s}x${s}@2x.png >/dev/null; done && iconutil -c icns build/icon.iconset -o build/icon.icns && rm -rf build/icon.iconset",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac"
+    "dist:mac": "npm run build && electron-builder --mac",
+    "release:patch": "npm version patch -m \"Релиз v%s\"",
+    "release:minor": "npm version minor -m \"Релиз v%s\""
   },
   "dependencies": {
     "motion": "^12.42.2",
@@ -36,6 +38,13 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "derab",
+        "repo": "time-tracker"
+      }
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*"

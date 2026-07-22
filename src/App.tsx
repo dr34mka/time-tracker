@@ -2,6 +2,7 @@ import { useState } from 'react';
 import TimerBar from './components/TimerBar';
 import Icon, { type IconName } from './components/Icon';
 import { Dock } from './components/Dock';
+import UpdateBanner from './components/UpdateBanner';
 import TodayScreen from './screens/TodayScreen';
 import ProjectsScreen from './screens/ProjectsScreen';
 import ProjectDetailScreen from './screens/ProjectDetailScreen';
@@ -30,6 +31,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <UpdateBanner />
       <div className="main">
         {route.name !== 'today' && <TimerBar onOpenToday={() => setRoute({ name: 'today' })} />}
         <div className="content">

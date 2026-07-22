@@ -346,6 +346,92 @@ function registerTrayIpc() {
   });
 }
 
+/* ===== Проверка обновлений (уведомление, без авто-установки) =====
+   Раз за запуск смотрим последний релиз на GitHub. Если версия новее —
+   показываем баннер в окне; «Скачать» открывает нужный файл (dmg/exe)
+   в браузере, установка вручную. Полное авто-обновление на macOS
+   потребовало бы подписи Apple Developer ID — здесь сознательно проще. */
+
+// ВАЖНО: укажите ваш реальный GitHub-логин и имя репозитория.
+// Пусто — проверка обновлений выключена (ошибок не будет).
+const UPDATE_OWNER = 'derab';
+const UPDATE_REPO = 'time-tracker';
+
+let latestUpdate = null;
+
+function parseVer(v) {
+  return String(v)
+    .replace(/^v/, '')
+    .split('.')
+    .map((n) => parseInt(n, 10) || 0);
+}
+function isNewerVersion(remote, local) {
+  const a = parseVer(remote);
+  const b = parseVer(local);
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] || 0) > (b[i] || 0)) return true;
+    if ((a[i] || 0) < (b[i] || 0)) return false;
+  }
+  return false;
+}
+
+/** Выбрать подходящий установщик под текущую платформу/архитектуру */
+function pickUpdateAsset(assets) {
+  const ext = process.platform === 'darwin' ? '.dmg' : '.exe';
+  const matches = assets.filter((a) => a.name.toLowerCase().endsWith(ext));
+  if (process.platform === 'darwin') {
+    const arm = matches.find((a) => a.name.toLowerCase().includes('arm64'));
+    const x64 = matches.find((a) => !a.name.toLowerCase().includes('arm64'));
+    return (process.arch === 'arm64' ? arm : x64) || matches[0] || null;
+  }
+  return matches[0] || null;
+}
+
+function checkForUpdates() {
+  if (!UPDATE_OWNER || !UPDATE_REPO) return;
+  require('https')
+    .get(
+      {
+        host: 'api.github.com',
+        path: `/repos/${UPDATE_OWNER}/${UPDATE_REPO}/releases/latest`,
+        headers: { 'User-Agent': 'time-tracker', Accept: 'application/vnd.github+json' },
+      },
+      (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          return;
+        }
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => {
+          try {
+            const rel = JSON.parse(body);
+            const tag = rel.tag_name || rel.name;
+            if (!tag || !isNewerVersion(tag, app.getVersion())) return;
+            const asset = pickUpdateAsset(rel.assets || []);
+            latestUpdate = {
+              version: String(tag).replace(/^v/, ''),
+              notesUrl: rel.html_url,
+              downloadUrl: asset ? asset.browser_download_url : rel.html_url,
+            };
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('update:available', latestUpdate);
+            }
+          } catch {}
+        });
+      },
+    )
+    .on('error', () => {});
+}
+
+function registerUpdateIpc() {
+  ipcMain.handle('update:get', () => latestUpdate);
+  ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.on('update:download', () => {
+    if (latestUpdate) shell.openExternal(latestUpdate.downloadUrl);
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1160,
@@ -398,8 +484,11 @@ if (!gotLock) {
     migrateLegacyUserData();
     registerIpc(() => mainWindow);
     registerTrayIpc();
+    registerUpdateIpc();
     createWindow();
     if (process.platform === 'darwin') createTray();
+    // не мешаем старту: проверяем обновления чуть погодя
+    setTimeout(checkForUpdates, 4000);
   });
 
   app.on('before-quit', () => {
