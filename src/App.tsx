@@ -45,10 +45,6 @@ export default function App() {
 
       <div className="dock-wrap">
         <Dock
-          magnification={1.2}
-          distance={40}
-          iconSize={32}
-          borderRadius={999}
           items={NAV.map((item) => ({
             icon: <Icon name={item.icon} size={20} strokeWidth={1.9} />,
             label: item.label,
