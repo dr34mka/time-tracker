@@ -14,7 +14,7 @@ import {
   toDateInputValue,
 } from '../lib/time';
 import { downloadCsv } from '../lib/csv';
-import { escapeHtml, printHtml } from '../lib/print';
+import { escapeHtml, savePdf } from '../lib/print';
 import type { Currency } from '../types';
 import Icon from '../components/Icon';
 import Select from '../components/Select';
@@ -57,7 +57,7 @@ function HoursChart({ days }: { days: { ts: number; ms: number }[] }) {
 
   return (
     <div className="chart-card" ref={wrapRef}>
-      <h3 style={{ marginBottom: 10 }}>Часы по дням</h3>
+      <h2 style={{ marginBottom: 16 }}>Часы по дням</h2>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', display: 'block' }} role="img" aria-label="Часы по дням">
         {/* сетка */}
         {ticks.map((t) => (
@@ -327,7 +327,7 @@ export default function ReportsScreen() {
   <div class="footer">Сформировано в Time Tracker · ${new Date().toLocaleDateString('ru-RU')}</div>
 </body></html>`;
 
-    printHtml(html);
+    savePdf(html, `report_${dayKey(from)}_${dayKey(addDays(to, -1))}.pdf`);
   };
 
   return (

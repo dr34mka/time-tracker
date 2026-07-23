@@ -33,6 +33,19 @@ export function printHtml(html: string): void {
   }, 150);
 }
 
+/** Сохранить HTML как PDF-файл в папке загрузок — без диалога печати и
+    диалога сохранения (десктоп, через printToPDF в главном процессе).
+    В браузере (нет window.desktop) — фолбэк на системный диалог печати,
+    где тоже можно сохранить как PDF. */
+export async function savePdf(html: string, filename: string): Promise<void> {
+  const desktop = window.desktop;
+  if (desktop?.savePdf) {
+    await desktop.savePdf(html, filename);
+    return;
+  }
+  printHtml(html);
+}
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

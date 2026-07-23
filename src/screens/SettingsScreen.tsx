@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '../state';
-import { clearState, DEFAULT_STATE, parseState } from '../lib/storage';
+import { parseState } from '../lib/storage';
 import { dayKey } from '../lib/time';
 import { CURRENCIES, ROUNDING_OPTIONS, type AppState, type Currency, type Theme } from '../types';
 import Icon from '../components/Icon';
@@ -17,11 +17,12 @@ export default function SettingsScreen() {
   const [dataDir, setDataDir] = useState<string | null>(null);
   const [pendingRestore, setPendingRestore] = useState<AppState | null>(null);
   const [foundInFolder, setFoundInFolder] = useState<AppState | null>(null);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     desktop?.getInfo().then((i) => setDataDir(i.dir));
+    desktop?.appVersion().then(setAppVersion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,12 +202,7 @@ export default function SettingsScreen() {
         )}
       </div>
 
-      <div className="card">
-        <h2 style={{ marginBottom: 16 }}>Опасная зона</h2>
-        <button className="btn btn-red" onClick={() => setConfirmClear(true)}>
-          <Icon name="trash" size={15} /> Очистить все данные
-        </button>
-      </div>
+      {appVersion && <div className="settings-version">Time Tracker · версия {appVersion}</div>}
 
       {pendingRestore && (
         <ConfirmModal
@@ -246,19 +242,6 @@ export default function SettingsScreen() {
             </button>
           </div>
         </Modal>
-      )}
-
-      {confirmClear && (
-        <ConfirmModal
-          title="Очистить все данные?"
-          message="Все проекты, задачи и записи времени будут удалены безвозвратно. Перед этим стоит скачать бэкап."
-          confirmLabel="Удалить всё"
-          onConfirm={() => {
-            clearState();
-            dispatch({ type: 'resetAll', state: DEFAULT_STATE });
-          }}
-          onClose={() => setConfirmClear(false)}
-        />
       )}
     </>
   );

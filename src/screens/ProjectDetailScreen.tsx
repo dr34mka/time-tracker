@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useAppDispatch, useAppState } from '../state';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -277,38 +278,46 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
                       </button>
                     </div>
                   </div>
-                  {expanded && entries.length > 0 && (
-                    <div className="task-entries">
-                      {entries.map((e) => {
-                        const c = computeEntry(e, taskById, projectById, state.settings);
-                        return (
-                          <div
-                            className="row"
-                            key={e.id}
-                            style={{ padding: '4px 0', borderBottom: '1px dashed var(--hairline)' }}
-                          >
-                            <span className="meta grow">
-                              {formatDay(e.start)}, {formatTime(e.start)}–{formatTime(e.end)}
-                              {e.manual ? ' · вручную' : ''}
-                              {e.note ? ` · ${e.note}` : ''}
-                            </span>
-                            <span className="mono meta">{formatDuration(e.durationMs)}</span>
-                            <span className="money" style={{ fontSize: 12 }}>
-                              {formatMoneyByCurrency({ [c.currency]: c.amount })}
-                            </span>
-                            <button
-                              className="btn btn-ghost btn-icon btn-danger"
-                              style={{ padding: '2px 4px' }}
-                              title="Удалить запись"
-                              onClick={() => setPendingDelete({ kind: 'entry', id: e.id })}
+                  <AnimatePresence initial={false}>
+                    {expanded && entries.length > 0 && (
+                      <motion.div
+                        className="task-entries"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.24, ease: [0.21, 0.61, 0.35, 1] }}
+                      >
+                        {entries.map((e) => {
+                          const c = computeEntry(e, taskById, projectById, state.settings);
+                          return (
+                            <div
+                              className="row"
+                              key={e.id}
+                              style={{ padding: '4px 0', borderBottom: '1px dashed var(--hairline)' }}
                             >
-                              <Icon name="x" size={13} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                              <span className="meta grow">
+                                {formatDay(e.start)}, {formatTime(e.start)}–{formatTime(e.end)}
+                                {e.manual ? ' · вручную' : ''}
+                                {e.note ? ` · ${e.note}` : ''}
+                              </span>
+                              <span className="mono meta">{formatDuration(e.durationMs)}</span>
+                              <span className="money" style={{ fontSize: 12 }}>
+                                {formatMoneyByCurrency({ [c.currency]: c.amount })}
+                              </span>
+                              <button
+                                className="btn btn-ghost btn-icon btn-danger"
+                                style={{ padding: '2px 4px' }}
+                                title="Удалить запись"
+                                onClick={() => setPendingDelete({ kind: 'entry', id: e.id })}
+                              >
+                                <Icon name="x" size={13} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}

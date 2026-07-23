@@ -284,7 +284,7 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
 
       <div className="section">
         <div className="row" style={{ marginBottom: 16 }}>
-          <h1 className="grow">Проекты</h1>
+          <h2 className="grow">Проекты</h2>
           <div className="view-toggle">
             <button
               className={'btn btn-icon btn-ghost' + (view === 'grid' ? ' selected' : '')}
@@ -308,7 +308,9 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
 
         {projects.length === 0 ? (
           <div className="card empty">
-            <div className="big">🚀</div>
+            <div className="empty-icon">
+              <Icon name="folder" size={24} strokeWidth={1.6} />
+            </div>
             Создайте первый проект — внутри добавите задачи и запустите таймер.
           </div>
         ) : view === 'grid' ? (

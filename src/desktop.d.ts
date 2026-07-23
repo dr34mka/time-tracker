@@ -37,6 +37,8 @@ export interface DesktopBridge {
   openDataDir(): Promise<void>;
   chooseDataDir(): Promise<{ path: string; hasFile: boolean; data: string | null } | null>;
   onExternalChange(cb: (raw: string) => void): void;
+  /** Рендерит HTML в PDF и сохраняет в папку загрузок (без диалогов) */
+  savePdf(html: string, filename: string): Promise<{ ok: boolean; path?: string; error?: string }>;
 
   /** Главное окно → трей: снапшот таймера при каждом изменении */
   setTrayState(snapshot: TraySnapshot): void;

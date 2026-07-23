@@ -102,7 +102,9 @@ export default function ProjectsScreen({ onOpenProject }: { onOpenProject: (id: 
 
       {visible.length === 0 ? (
         <div className="card empty">
-          <div className="big">📁</div>
+          <div className="empty-icon">
+            <Icon name="folder" size={24} strokeWidth={1.6} />
+          </div>
           Пока нет проектов. Создайте первый — укажите клиента, цвет и ставку.
         </div>
       ) : (

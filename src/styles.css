@@ -502,6 +502,7 @@ kbd {
   padding: 0 4px 8px 56px;
   border-bottom: 1px solid var(--hairline);
   min-width: 560px;
+  overflow: hidden;
 }
 .task-list > div:last-child > .task-entries {
   border-bottom: none;
@@ -628,6 +629,13 @@ input[type='checkbox']:checked::after {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.4;
+}
+.settings-version {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
 /* ===== Карточки и списки ===== */
@@ -850,8 +858,8 @@ input[type='checkbox']:checked::after {
 /* ===== Проекты ===== */
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(264px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
 }
 .project-card {
   display: flex;
@@ -859,12 +867,12 @@ input[type='checkbox']:checked::after {
   background: var(--card-sheen), var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 4px;
-  padding: 24px;
+  padding: 28px;
   cursor: pointer;
   transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
 }
 .project-card .row b {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.2;
 }
 .project-card .avatar {
@@ -879,17 +887,24 @@ input[type='checkbox']:checked::after {
 .project-card .stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 32px;
+  gap: 10px 32px;
   margin-top: auto;
-  padding-top: 24px;
+  padding-top: 26px;
 }
 .project-card .stat .value {
   font-size: 20px;
 }
 .project-card .card-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+/* кнопки делят ширину поровну; если места мало — переносятся на свою строку,
+   а не вылезают за карточку */
+.project-card .card-actions .btn {
+  flex: 1 1 128px;
+  justify-content: center;
 }
 .stat {
   display: flex;
@@ -1313,9 +1328,16 @@ table.report tr.total-row td {
   padding: 32px 16px;
   line-height: 1.4;
 }
-.empty .big {
-  font-size: 32px;
-  margin-bottom: 8px;
+.empty-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  color: var(--ink-2);
 }
 
 kbd {
