@@ -42,7 +42,8 @@
       {
         "provider": "github",
         "owner": "dr34mka",
-        "repo": "time-tracker"
+        "repo": "time-tracker",
+        "releaseType": "release"
       }
     ],
     "files": [
