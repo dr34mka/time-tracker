@@ -41,7 +41,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "derab",
+        "owner": "dr34mka",
         "repo": "time-tracker"
       }
     ],

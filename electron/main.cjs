@@ -354,7 +354,7 @@ function registerTrayIpc() {
 
 // ВАЖНО: укажите ваш реальный GitHub-логин и имя репозитория.
 // Пусто — проверка обновлений выключена (ошибок не будет).
-const UPDATE_OWNER = 'derab';
+const UPDATE_OWNER = 'dr34mka';
 const UPDATE_REPO = 'time-tracker';
 
 let latestUpdate = null;
