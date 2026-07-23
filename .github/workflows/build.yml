@@ -5,9 +5,15 @@ on:
   push:
     tags: ['v*'] # или при пуше тега версии, например v0.1.0
 
+# по умолчанию GITHUB_TOKEN даёт только чтение — electron-builder не может
+# создать релиз без явного contents: write (иначе падает на --publish always)
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
+      fail-fast: false # падение одной платформы не должно отменять другую
       matrix:
         include:
           - os: windows-latest
