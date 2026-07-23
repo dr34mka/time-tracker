@@ -63,15 +63,6 @@ function dataFilePath() {
 let lastWritten = null; // чтобы не реагировать на собственные записи
 let watcher = null;
 
-/** Путь в папке загрузок без перезаписи: report.pdf, report (1).pdf, ... */
-function uniqueDownloadPath(dir, base, ext) {
-  let candidate = path.join(dir, `${base}${ext}`);
-  for (let n = 1; fs.existsSync(candidate); n++) {
-    candidate = path.join(dir, `${base} (${n})${ext}`);
-  }
-  return candidate;
-}
-
 function watchDataDir(win) {
   if (watcher) {
     watcher.close();
@@ -140,9 +131,11 @@ function registerIpc(getWin) {
     return { path: res.filePaths[0], hasFile: data != null, data };
   });
 
-  // рендер HTML-отчёта в PDF и сохранение в Загрузки — без диалога печати
-  // и без диалога сохранения, как обычная скачанная ссылка (a[download])
-  ipcMain.handle('pdf:save', async (_e, html, filename) => {
+  // рендер HTML-отчёта в PDF (без диалога печати); байты уходят в рендерер,
+  // где по тому же пути, что CSV/бэкап (a[download]), запускается обычное
+  // Electron-скачивание — с системным диалогом «Сохранить как» и понятной
+  // обратной связью, вместо тихой записи в файловую систему
+  ipcMain.handle('pdf:render', async (_e, html) => {
     const win = new BrowserWindow({ show: false });
     try {
       await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
@@ -151,13 +144,7 @@ function registerIpc(getWin) {
         preferCSSPageSize: true,
         pageSize: 'A4',
       });
-      const dir = app.getPath('downloads');
-      const base = filename.replace(/\.pdf$/i, '');
-      const dest = uniqueDownloadPath(dir, base, '.pdf');
-      fs.writeFileSync(dest, pdf);
-      return { ok: true, path: dest };
-    } catch (err) {
-      return { ok: false, error: String(err) };
+      return pdf.toString('base64');
     } finally {
       win.destroy();
     }

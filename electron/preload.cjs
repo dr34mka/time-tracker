@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('desktop', {
   getInfo: () => ipcRenderer.invoke('data:info'),
   openDataDir: () => ipcRenderer.invoke('data:open-dir'),
   chooseDataDir: () => ipcRenderer.invoke('data:choose-dir'),
-  savePdf: (html, filename) => ipcRenderer.invoke('pdf:save', html, filename),
+  renderPdf: (html) => ipcRenderer.invoke('pdf:render', html),
   onExternalChange: (cb) => {
     ipcRenderer.on('data:external-change', (_event, raw) => cb(raw));
   },

@@ -33,14 +33,23 @@ export function printHtml(html: string): void {
   }, 150);
 }
 
-/** Сохранить HTML как PDF-файл в папке загрузок — без диалога печати и
-    диалога сохранения (десктоп, через printToPDF в главном процессе).
-    В браузере (нет window.desktop) — фолбэк на системный диалог печати,
-    где тоже можно сохранить как PDF. */
+/** Сохранить HTML как PDF-файл: рендерится в главном процессе (без диалога
+    печати), а скачивается тем же способом, что CSV и бэкап (a[download]) —
+    системный диалог «Сохранить как» с понятной обратной связью, вместо
+    тихой записи в файловую систему. В браузере (нет window.desktop) —
+    фолбэк на системный диалог печати, где тоже можно сохранить как PDF. */
 export async function savePdf(html: string, filename: string): Promise<void> {
   const desktop = window.desktop;
-  if (desktop?.savePdf) {
-    await desktop.savePdf(html, filename);
+  if (desktop?.renderPdf) {
+    const base64 = await desktop.renderPdf(html);
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
     return;
   }
   printHtml(html);
