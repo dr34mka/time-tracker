@@ -1,7 +1,7 @@
 {
   "name": "time-tracker",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Трекер рабочего времени для фрилансеров: проекты, задачи, таймер, ставки и отчёты",
   "author": "derab <derabonn@gmail.com>",
   "type": "module",
