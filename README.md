@@ -14,60 +14,61 @@ npm run app:dev    # Electron поверх работающего vite dev-се�
 npm run icons      # перегенерация template-иконок меню-бара (electron/assets/)
 ```
 
-## Релиз десктоп-приложения
+## Как выпустить релиз
 
 Обёртка — Electron + electron-builder (конфиг в `package.json`, поле `build`;
-главный процесс — `electron/main.cjs`).
+главный процесс — `electron/main.cjs`). Репозиторий: github.com/dr34mka/time-tracker
+(задан константами `UPDATE_OWNER`/`UPDATE_REPO` в `electron/main.cjs` и полем
+`build.publish` в `package.json` — оба должны совпадать с реальным репо).
 
-- **Windows (локально):** `npm run dist:win` → в `release/` появятся
-  `Time Tracker Setup 0.1.0.exe` (инсталлятор) и
-  `Time Tracker 0.1.0.exe` (portable). Если сборка падает на распаковке
-  winCodeSign (симлинки требуют прав администратора) — включите Developer Mode
-  в Windows или распакуйте архив в кэш вручную, ошибки на `darwin/*.dylib`
-  можно игнорировать.
-- **macOS:** собирается только на macOS — используйте GitHub Actions
-  (`.github/workflows/build.yml`): запуск вручную (workflow_dispatch) или пуш
-  тега `v*`. Артефакты: dmg + zip для arm64 и x64, без подписи
-  (`identity: null`) — только автоматическая ad-hoc-подпись линкера.
-  **После скачивания через браузер macOS (Apple Silicon, современные
-  версии) блокирует запуск диалогом «Приложение повреждено, переместите
-  в Корзину»** — это не повреждение, а Gatekeeper, у которого нет доверия
-  к неподписанному карантинному файлу; правый клик → «Открыть» тут не
-  помогает (это работает только для старого диалога «неизвестный
-  разработчик»). Файл цел, чинится одной командой в Terminal **после**
-  перетаскивания в Applications:
+Три сценария в зависимости от цели:
+
+**A. Просто обновить у себя, без публикации.** Версию можно не трогать.
+```bash
+npm run dist:mac
+```
+Откройте `release/Time Tracker-<версия>-arm64.dmg` и перетащите в Applications
+поверх старой версии.
+
+**B. Опубликовать для всех через терминал (рекомендуется).** Это единственный
+способ, при котором сработает баннер «Доступна новая версия» у всех, у кого
+приложение уже установлено.
+```bash
+npm run release:patch    # 0.1.0 → 0.1.1 (или release:minor → следующий 0.X.0)
+git push --follow-tags
+```
+`npm version` сам поднимает номер в `package.json`, коммитит и ставит тег
+`vX.Y.Z`. Пуш тега запускает GitHub Actions (`.github/workflows/build.yml`),
+который собирает macOS и Windows и публикует dmg/exe в Releases —
+проверить: github.com/dr34mka/time-tracker/actions (~3–6 минут), затем
+github.com/dr34mka/time-tracker/releases. Дальше ничего делать не нужно —
+у всех установленных копий баннер появится при следующем запуске.
+
+**C. Опубликовать вручную через сайт GitHub (без git push, если что-то не
+так с Actions).** Соберите артефакты локально, поднимите версию (вручную
+в `package.json` или `npm version patch --no-git-tag-version` — без коммита
+и тега) и загрузите файлы через github.com/dr34mka/time-tracker/releases/new:
+укажите новый тег вида `v0.1.2`, перетащите dmg/exe из `release/` как файлы
+релиза, Publish.
+
+Общее для B и C:
+- **Windows** собирается либо на самой Windows (`npm run dist:win` →
+  `Time Tracker Setup X.exe` инсталлятор и `Time Tracker X.exe` portable в
+  `release/`; если падает на распаковке winCodeSign — включите Developer
+  Mode в Windows или распакуйте архив в кэш вручную, ошибки на
+  `darwin/*.dylib` игнорируются), либо через GitHub Actions (сценарий B).
+- **macOS без подписи** (`identity: null`, только ad-hoc от линкера) —
+  любой, кто скачает dmg через браузер, увидит диалог Gatekeeper
+  «Приложение повреждено, переместите в Корзину». Файл цел, правый клик →
+  «Открыть» не помогает (это для другого диалога, «неизвестный
+  разработчик»). Чинится в Terminal после установки в Applications:
   ```bash
   xattr -cr "/Applications/Time Tracker.app"
   ```
   Постоянное решение — Apple Developer ID ($99/год) + подпись и
-  нотарификация в CI; тогда Gatekeeper пропускает без плясок.
-- Версия артефактов берётся из `version` в `package.json`.
+  нотарификация в CI.
 - Данные приложения (localStorage) живут в профиле Electron
   (`%APPDATA%/Time Tracker` на Windows) и не зависят от браузера.
-
-## Выпуск версии и уведомление об обновлении
-
-Приложение при запуске проверяет последний релиз на GitHub Releases и, если
-версия там новее установленной, показывает баннер «Доступна версия X» с
-кнопкой «Скачать» (открывает dmg под текущую платформу/архитектуру или exe).
-Установка вручную — авто-установка на macOS потребовала бы подписи Apple
-Developer ID. Проверка идёт в главном процессе (`electron/main.cjs`,
-`checkForUpdates`) через GitHub API; репозиторий задаётся константами
-`UPDATE_OWNER`/`UPDATE_REPO` там же и полем `build.publish` в `package.json`
-(оба должны указывать на ваш реальный репозиторий).
-
-Как выпустить новую версию:
-
-```bash
-npm run release:patch   # 0.1.0 → 0.1.1 (или release:minor → 0.2.0)
-git push --follow-tags  # пуш коммита и тега v* → GitHub Actions собирает и
-                        # публикует dmg/exe в Releases (нужен настроенный remote)
-```
-
-`npm version` сам поднимает номер в `package.json`, делает коммит и тег `vX.Y.Z`.
-Пуш тега `v*` запускает workflow с `--publish always` (токен `GITHUB_TOKEN`
-предоставляет GitHub Actions) — артефакты попадают в релиз, и клиенты видят
-баннер при следующем запуске.
 
 ## Виджет меню-бара (macOS)
 
