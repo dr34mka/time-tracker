@@ -19,6 +19,7 @@ const fs = require('fs');
    тогда файл синхронизируется между компьютерами силами облака. */
 
 const DATA_FILE_NAME = 'time-tracker-data.json';
+const DATA_BACKUP_FILE_NAME = 'time-tracker-data.backup.json';
 
 /* Пакет переименован time-tracker-pro → time-tracker, а от имени пакета
    зависит папка userData. Однократно перетаскиваем данные из старой папки. */
@@ -61,44 +62,111 @@ function dataFilePath() {
 }
 
 let lastWritten = null; // чтобы не реагировать на собственные записи
+let lastKnownRaw = null; // версия файла, на базе которой работает renderer
+let pendingConflict = null;
 let watcher = null;
+let watcherTimer = null;
+
+function readDataFile() {
+  try {
+    const raw = fs.readFileSync(dataFilePath(), 'utf8');
+    JSON.parse(raw);
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function atomicWrite(filePath, raw) {
+  const tempPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(tempPath, raw, 'utf8');
+  fs.renameSync(tempPath, filePath);
+}
+
+function conflictBackupPath(label = 'conflict') {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return path.join(getDataDir(), `time-tracker-${label}-${stamp}.json`);
+}
+
+function notifyConflict(win, attemptedRaw) {
+  const backupPath = conflictBackupPath();
+  atomicWrite(backupPath, attemptedRaw);
+  pendingConflict = {
+    localRaw: attemptedRaw,
+    externalRaw: readDataFile(),
+    backupPath,
+  };
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('data:conflict', {
+      backupPath,
+      dataPath: dataFilePath(),
+    });
+  }
+  return backupPath;
+}
+
+function readExternalChange(win, attempt = 0) {
+  const raw = readDataFile();
+  if (!raw) {
+    if (attempt < 3) {
+      watcherTimer = setTimeout(() => readExternalChange(win, attempt + 1), 500 * (attempt + 1));
+    }
+    return;
+  }
+  lastKnownRaw = raw;
+  if (raw !== lastWritten && win && !win.isDestroyed()) {
+    win.webContents.send('data:external-change', raw);
+  }
+}
 
 function watchDataDir(win) {
   if (watcher) {
     watcher.close();
     watcher = null;
   }
+  if (watcherTimer) {
+    clearTimeout(watcherTimer);
+    watcherTimer = null;
+  }
   try {
     watcher = fs.watch(getDataDir(), (_event, filename) => {
       if (filename !== DATA_FILE_NAME) return;
-      // небольшая задержка: облачные клиенты пишут файл не атомарно
-      setTimeout(() => {
-        try {
-          const raw = fs.readFileSync(dataFilePath(), 'utf8');
-          if (raw && raw !== lastWritten && !win.isDestroyed()) {
-            lastWritten = raw;
-            win.webContents.send('data:external-change', raw);
-          }
-        } catch {}
-      }, 300);
+      // Облачный клиент может прислать событие до завершения записи.
+      if (watcherTimer) clearTimeout(watcherTimer);
+      watcherTimer = setTimeout(() => readExternalChange(win), 300);
     });
   } catch {}
 }
 
 function registerIpc(getWin) {
   ipcMain.handle('data:load', () => {
-    try {
-      return fs.readFileSync(dataFilePath(), 'utf8');
-    } catch {
-      return null;
-    }
+    const raw = readDataFile();
+    lastKnownRaw = raw;
+    return raw;
   });
 
-  ipcMain.handle('data:save', (_e, raw) => {
+  ipcMain.handle('data:save', (_e, raw, expectedRaw) => {
     try {
+      JSON.parse(raw);
       lastWritten = raw;
       fs.mkdirSync(getDataDir(), { recursive: true });
-      fs.writeFileSync(dataFilePath(), raw);
+      const currentRaw = readDataFile();
+      if (currentRaw === raw) {
+        lastKnownRaw = raw;
+        return true;
+      }
+      const baseRaw = expectedRaw === undefined ? lastKnownRaw : expectedRaw;
+      if (currentRaw && baseRaw !== null && currentRaw !== baseRaw) {
+        if (!pendingConflict) notifyConflict(getWin(), raw);
+        lastWritten = null;
+        lastKnownRaw = currentRaw;
+        return false;
+      }
+      if (currentRaw) {
+        atomicWrite(path.join(getDataDir(), DATA_BACKUP_FILE_NAME), currentRaw);
+      }
+      atomicWrite(dataFilePath(), raw);
+      lastKnownRaw = raw;
       return true;
     } catch {
       return false;
@@ -111,6 +179,26 @@ function registerIpc(getWin) {
   }));
 
   ipcMain.handle('data:open-dir', () => shell.openPath(getDataDir()));
+
+  ipcMain.handle('data:resolve-conflict', (_e, choice) => {
+    if (!pendingConflict) return null;
+    const win = getWin();
+    let resolvedRaw = pendingConflict.externalRaw;
+    if (choice === 'local') {
+      if (pendingConflict.externalRaw) {
+        atomicWrite(conflictBackupPath('external-conflict'), pendingConflict.externalRaw);
+      }
+      resolvedRaw = pendingConflict.localRaw;
+      atomicWrite(dataFilePath(), resolvedRaw);
+      lastWritten = resolvedRaw;
+    }
+    pendingConflict = null;
+    lastKnownRaw = resolvedRaw;
+    if (resolvedRaw && win && !win.isDestroyed()) {
+      win.webContents.send('data:external-change', resolvedRaw);
+    }
+    return resolvedRaw;
+  });
 
   ipcMain.handle('data:choose-dir', async () => {
     const win = getWin();
@@ -125,8 +213,10 @@ function registerIpc(getWin) {
     writeConfig(cfg);
     let data = null;
     try {
-      data = fs.readFileSync(dataFilePath(), 'utf8');
+      data = readDataFile();
     } catch {}
+    lastKnownRaw = data;
+    lastWritten = null;
     watchDataDir(win);
     return { path: res.filePaths[0], hasFile: data != null, data };
   });
@@ -399,11 +489,9 @@ function pickUpdateAsset(assets) {
   const ext = process.platform === 'darwin' ? '.dmg' : '.exe';
   const matches = assets.filter((a) => a.name.toLowerCase().endsWith(ext));
   if (process.platform === 'darwin') {
-    const arm = matches.find((a) => a.name.toLowerCase().includes('arm64'));
-    const x64 = matches.find((a) => !a.name.toLowerCase().includes('arm64'));
-    return (process.arch === 'arm64' ? arm : x64) || matches[0] || null;
+    return matches.find((a) => a.name.toLowerCase().includes('arm64')) || matches[0] || null;
   }
-  return matches[0] || null;
+  return matches.find((a) => a.name.toLowerCase().includes('setup')) || matches[0] || null;
 }
 
 function checkForUpdates() {
@@ -447,8 +535,17 @@ function registerUpdateIpc() {
   ipcMain.handle('update:get', () => latestUpdate);
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.on('update:download', () => {
-    if (latestUpdate) shell.openExternal(latestUpdate.downloadUrl);
+    if (latestUpdate) openExternalUrl(latestUpdate.downloadUrl);
   });
+}
+
+function openExternalUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol === 'https:' || url.protocol === 'http:') {
+      shell.openExternal(url.toString());
+    }
+  } catch {}
 }
 
 function createWindow() {
@@ -476,7 +573,7 @@ function createWindow() {
 
   // внешние ссылки открываем в системном браузере, а не в окне приложения
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    openExternalUrl(url);
     return { action: 'deny' };
   });
 

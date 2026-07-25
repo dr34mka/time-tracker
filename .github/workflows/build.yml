@@ -3,7 +3,10 @@ name: Build desktop apps
 on:
   workflow_dispatch: # запуск вручную со страницы Actions
   push:
+    branches: [main]
     tags: ['v*'] # или при пуше тега версии, например v0.1.0
+  pull_request:
+    branches: [main]
 
 # по умолчанию GITHUB_TOKEN даёт только чтение — electron-builder не может
 # создать релиз без явного contents: write (иначе падает на --publish always)
@@ -11,7 +14,22 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
   build:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false # падение одной платформы не должно отменять другую
       matrix:
@@ -19,14 +37,14 @@ jobs:
           - os: windows-latest
             args: --win
           - os: macos-latest
-            args: --mac
+            args: --mac --arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci

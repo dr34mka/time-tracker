@@ -29,14 +29,21 @@ export interface UpdateInfo {
   downloadUrl: string;
 }
 
+export interface DataConflictInfo {
+  backupPath: string;
+  dataPath: string;
+}
+
 /** Мост в главный процесс Electron (electron/preload.cjs). В браузере отсутствует. */
 export interface DesktopBridge {
   loadData(): Promise<string | null>;
-  saveData(raw: string): Promise<boolean>;
+  saveData(raw: string, expectedRaw?: string | null): Promise<boolean>;
   getInfo(): Promise<{ dir: string; isDefault: boolean }>;
   openDataDir(): Promise<void>;
+  resolveDataConflict(choice: 'external' | 'local'): Promise<string | null>;
   chooseDataDir(): Promise<{ path: string; hasFile: boolean; data: string | null } | null>;
-  onExternalChange(cb: (raw: string) => void): void;
+  onExternalChange(cb: (raw: string) => void): () => void;
+  onDataConflict(cb: (info: DataConflictInfo) => void): () => void;
   /** Рендерит HTML в PDF (без диалога печати); возвращает файл как base64 */
   renderPdf(html: string): Promise<string>;
 

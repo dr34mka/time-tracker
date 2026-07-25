@@ -8,6 +8,7 @@
 ```bash
 npm install
 npm run dev        # http://localhost:5173
+npm test           # unit-тесты основной логики
 npm run build      # прод-сборка в dist/
 npm run app        # запуск десктоп-приложения (Electron, нужен свежий dist/)
 npm run app:dev    # Electron поверх работающего vite dev-сервера (HMR)
@@ -39,7 +40,7 @@ git push --follow-tags
 ```
 `npm version` сам поднимает номер в `package.json`, коммитит и ставит тег
 `vX.Y.Z`. Пуш тега запускает GitHub Actions (`.github/workflows/build.yml`),
-который собирает macOS и Windows и публикует dmg/exe в Releases —
+который собирает macOS Apple Silicon и Windows и публикует dmg/exe в Releases —
 проверить: github.com/dr34mka/time-tracker/actions (~3–6 минут), затем
 github.com/dr34mka/time-tracker/releases. Дальше ничего делать не нужно —
 у всех установленных копий баннер появится при следующем запуске.
@@ -57,7 +58,7 @@ github.com/dr34mka/time-tracker/releases. Дальше ничего делать
   `release/`; если падает на распаковке winCodeSign — включите Developer
   Mode в Windows или распакуйте архив в кэш вручную, ошибки на
   `darwin/*.dylib` игнорируются), либо через GitHub Actions (сценарий B).
-- **macOS без подписи** (`identity: null`, только ad-hoc от линкера) —
+- **macOS Apple Silicon без подписи** (`identity: null`, только ad-hoc от линкера) —
   любой, кто скачает dmg через браузер, увидит диалог Gatekeeper
   «Приложение повреждено, переместите в Корзину». Файл цел, правый клик →
   «Открыть» не помогает (это для другого диалога, «неизвестный
@@ -67,8 +68,10 @@ github.com/dr34mka/time-tracker/releases. Дальше ничего делать
   ```
   Постоянное решение — Apple Developer ID ($99/год) + подпись и
   нотарификация в CI.
-- Данные приложения (localStorage) живут в профиле Electron
-  (`%APPDATA%/Time Tracker` на Windows) и не зависят от браузера.
+- Данные приложения сохраняются в `localStorage` и JSON-файл в профиле Electron
+  (`%APPDATA%/Time Tracker` на Windows). Запись файла атомарная, предыдущая
+  версия хранится как бэкап, а параллельные облачные изменения не
+  перезаписываются молча.
 
 ## Виджет меню-бара (macOS)
 
@@ -89,22 +92,23 @@ template-PNG, генерируются `scripts/gen-tray-icons.mjs` (`npm run ic
 
 - React 18 + TypeScript + Vite
 - Состояние: React Context + useReducer
-- Хранение: localStorage (ключ `time-tracker-v1`) — состояние таймера
-  переживает закрытие вкладки: хранятся эпох-метки старта, прошедшее время
-  вычисляется при загрузке.
+- Хранение: схема данных v2 в localStorage (ключ `time-tracker-v1`) и JSON-файле
+  Electron. Старые бэкапы мигрируют при чтении; состояние таймера переживает
+  перезапуск.
+- Проверки: Vitest для бизнес-логики и GitHub Actions для PR и `main`.
 
 ## Структура
 
 ```
 src/
-  types.ts                 — модель данных (Project, Task, TimeEntry, ActiveTimer, Settings)
+  types.ts                 — модель данных (Client, Project, Task, TimeEntry, Settings)
   state.tsx                — глобальный стор: reducer + Context + персистентность
   hooks.ts                 — useNow (тикер), timerElapsed
   lib/
     money.ts               — наследование ставок (задача → проект → глобальная),
                              округление биллинга, форматирование валют
     time.ts                — форматирование и календарные хелперы
-    storage.ts             — load/save localStorage, миграция дефолтов
+    storage.ts             — валидация, load/save localStorage, миграции схемы
     csv.ts                 — экспорт CSV (UTF-8 BOM, ; как разделитель)
   components/
     Modal.tsx, TimerBar.tsx, Icon.tsx (SVG-иконки)
@@ -113,8 +117,9 @@ src/
   screens/
     TodayScreen.tsx        — главный экран: таймер, быстрый старт, записи за день
     ProjectsScreen.tsx     — список проектов + форма создания/редактирования
+    ClientsScreen.tsx      — клиенты, контакты, архив и сводка
     ProjectDetailScreen.tsx— задачи проекта, ручной ввод времени, записи
-    ReportsScreen.tsx      — фильтры, сводка, график часов, таблица, CSV
+    ReportsScreen.tsx      — фильтры, сводка, график, CSV и PDF
     SettingsScreen.tsx     — ставка, валюта, интервал биллинга, тема
 ```
 
@@ -136,7 +141,7 @@ Space Grotesk (Google Fonts, с системными фолбэками). На �
   (1/5/15/30/60 мин), заработок = округлённые часы × ставка.
 - **Таймер**: старт нового таймера автоматически останавливает и сохраняет
   предыдущий; записи короче 1 секунды не сохраняются.
-- **Валюты**: USD, EUR, RON, MDL — суммы в отчётах группируются по валютам
+- **Валюты**: RUB и USD — суммы в отчётах группируются по валютам
   и не смешиваются.
 
 ## Шорткаты
@@ -148,5 +153,5 @@ Space Grotesk (Google Fonts, с системными фолбэками). На �
 
 - Календарь (день/неделя/месяц) с drag-and-drop записей
 - Сценарии «что если» (сравнение ставок), прогноз дохода
-- PDF-отчёты и инвойсы
+- Инвойсы на основе клиентов и отфильтрованных отчётов
 - Авторизация и синхронизация с бэкендом (сейчас данные локальные)

@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '../state';
 import { parseState } from '../lib/storage';
 import { dayKey } from '../lib/time';
-import { CURRENCIES, ROUNDING_OPTIONS, type AppState, type Currency, type Theme } from '../types';
+import {
+  CURRENCIES,
+  CURRENCY_LABELS,
+  ROUNDING_OPTIONS,
+  type AppState,
+  type Currency,
+  type Theme,
+} from '../types';
 import Icon from '../components/Icon';
 import Select from '../components/Select';
 import Modal from '../components/Modal';
@@ -93,7 +100,7 @@ export default function SettingsScreen() {
               onChange={(v) => dispatch({ type: 'updateSettings', settings: { currency: v as Currency } })}
               options={CURRENCIES.map((c) => ({
                 value: c,
-                label: c === 'RUB' ? '₽ Российский рубль' : '$ Доллар США',
+                label: CURRENCY_LABELS[c],
               }))}
             />
           </div>

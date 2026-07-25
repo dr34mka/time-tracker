@@ -60,6 +60,33 @@ export function addDays(ts: number, days: number): number {
   return d.getTime();
 }
 
+export type ReportPeriod = 'today' | 'week' | 'month' | '30d' | 'all' | 'custom';
+
+export function reportRange(
+  period: ReportPeriod,
+  now: number,
+  entryStarts: number[],
+  customFrom: number,
+  customTo: number,
+): [number, number] {
+  switch (period) {
+    case 'today':
+      return [startOfDay(now), addDays(startOfDay(now), 1)];
+    case 'week':
+      return [startOfWeek(now), addDays(startOfWeek(now), 7)];
+    case 'month':
+      return [startOfMonth(now), addDays(startOfDay(now), 1)];
+    case '30d':
+      return [addDays(startOfDay(now), -29), addDays(startOfDay(now), 1)];
+    case 'all': {
+      const first = entryStarts.length > 0 ? Math.min(...entryStarts) : now;
+      return [startOfDay(first), addDays(startOfDay(now), 1)];
+    }
+    case 'custom':
+      return [Math.min(customFrom, customTo), addDays(Math.max(customFrom, customTo), 1)];
+  }
+}
+
 /** «12 июля» */
 export function formatDay(ts: number): string {
   return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });

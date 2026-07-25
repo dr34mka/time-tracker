@@ -66,7 +66,7 @@ export function computeEntry(
   };
 }
 
-/** Суммы по валютам: {USD: 120, EUR: 40} → строка «120 $ · 40 €» */
+/** Суммы по валютам: {RUB: 5000, USD: 120} → строка «5 000 ₽ · 120 $» */
 export function formatMoneyByCurrency(totals: Partial<Record<Currency, number>>): string {
   const entries = Object.entries(totals).filter(([, v]) => v !== undefined) as [Currency, number][];
   const nonZero = entries.filter(([, v]) => v > 0);

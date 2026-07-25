@@ -17,6 +17,8 @@ export interface Settings {
 export interface Project {
   id: string;
   name: string;
+  /** Ссылка на клиента; поле client остаётся снимком имени для старых бэкапов */
+  clientId?: string;
   client: string;
   color: string;
   /** Аватарка проекта — data URL (jpeg 128×128), опционально */
@@ -26,6 +28,16 @@ export interface Project {
   /** Переопределение валюты; undefined — используется глобальная */
   currency?: Currency;
   status: ProjectStatus;
+  archived: boolean;
+  createdAt: number;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  company?: string;
+  email?: string;
+  notes?: string;
   archived: boolean;
   createdAt: number;
 }
@@ -69,7 +81,9 @@ export interface ActiveTimer {
 }
 
 export interface AppState {
+  schemaVersion: 2;
   settings: Settings;
+  clients: Client[];
   projects: Project[];
   tasks: Task[];
   entries: TimeEntry[];
@@ -77,6 +91,11 @@ export interface AppState {
 }
 
 export const CURRENCIES: Currency[] = ['RUB', 'USD'];
+
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  RUB: '₽ Российский рубль',
+  USD: '$ Доллар США',
+};
 
 export const ROUNDING_OPTIONS = [1, 5, 15, 30, 60];
 

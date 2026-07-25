@@ -308,6 +308,10 @@ kbd {
 .update-banner-btn:hover {
   filter: brightness(1.08);
 }
+.update-banner-btn.secondary {
+  background: var(--surface-2);
+  color: var(--ink);
+}
 .update-banner-x {
   flex: none;
   display: inline-flex;
@@ -325,6 +329,72 @@ kbd {
 .update-banner-x:hover {
   color: var(--ink);
   background: var(--surface-2);
+}
+
+.sync-conflict-banner {
+  top: calc(66px + env(safe-area-inset-top));
+  width: min(760px, calc(100vw - 32px));
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  border-radius: 12px;
+}
+
+.sync-conflict-banner .update-banner-badge {
+  background: var(--warn);
+}
+
+.sync-conflict-banner .update-banner-text {
+  flex: 1;
+}
+
+.sync-conflict-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 620px) {
+  .sync-conflict-banner {
+    flex-wrap: wrap;
+  }
+  .sync-conflict-banner .update-banner-text {
+    white-space: normal;
+    line-height: 1.35;
+  }
+  .sync-conflict-actions {
+    width: 100%;
+    padding-left: 36px;
+  }
+  .sync-conflict-actions .update-banner-btn {
+    flex: 1;
+    padding-inline: 8px;
+  }
+}
+
+.client-avatar {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.client-contact,
+.client-notes {
+  margin-top: 12px;
+  color: var(--ink-2);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.client-notes {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 /* ===== Анимированные цифры таймера ===== */

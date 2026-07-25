@@ -18,7 +18,14 @@ import {
   startOfWeek,
   toDateInputValue,
 } from '../lib/time';
-import { computeEntry, formatMoney, formatMoneyByCurrency, resolveCurrency } from '../lib/money';
+import {
+  amountFor,
+  computeEntry,
+  formatMoney,
+  formatMoneyByCurrency,
+  resolveCurrency,
+  resolveRate,
+} from '../lib/money';
 import type { Currency, Project, Task } from '../types';
 import Icon from '../components/Icon';
 import { AnimateDigits } from '../components/AnimateDigits';
@@ -108,6 +115,7 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [formOpen, setFormOpen] = useState(false);
   const [startProjectId, setStartProjectId] = useState('');
+  const [startTaskId, setStartTaskId] = useState('');
   const [namingTaskId, setNamingTaskId] = useState<string | null>(null);
 
   const taskById = useMemo(() => new Map(state.tasks.map((t) => [t.id, t])), [state.tasks]);
@@ -122,13 +130,34 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
     let durationMs = 0;
     const money: Partial<Record<Currency, number>> = {};
     for (const e of state.entries) {
-      if (e.end < todayStart) continue;
+      if (dayKey(e.start) !== dayKey(todayStart)) continue;
       const c = computeEntry(e, taskById, projectById, state.settings);
       durationMs += c.durationMs;
       money[c.currency] = (money[c.currency] ?? 0) + c.amount;
     }
     return { durationMs, money };
   }, [state.entries, todayStart, taskById, projectById, state.settings]);
+  const todayTotalsWithTimer = useMemo(() => {
+    if (!timer || dayKey(timer.firstStartedAt) !== dayKey(todayStart)) return todayTotals;
+    const currency = resolveCurrency(activeProject, state.settings);
+    const money = { ...todayTotals.money };
+    money[currency] =
+      (money[currency] ?? 0) +
+      amountFor(
+        liveMs,
+        resolveRate(activeTask, activeProject, state.settings),
+        state.settings.roundingMinutes,
+      );
+    return { durationMs: todayTotals.durationMs + liveMs, money };
+  }, [
+    activeProject,
+    activeTask,
+    liveMs,
+    state.settings,
+    timer,
+    todayStart,
+    todayTotals,
+  ]);
 
   // отслеженное время по дням (для стрика и недельной полосы)
   const msByDay = useMemo(() => {
@@ -173,12 +202,29 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
     return map;
   }, [state.entries, taskById, projectById, state.settings]);
 
-  const projects = state.projects.filter((p) => !p.archived);
+  const projects = state.projects.filter((p) => !p.archived && p.status === 'active');
+  const selectedStartProject = projects.find((project) => project.id === startProjectId) ?? projects[0];
+  const taskLastUsed = useMemo(() => {
+    const result = new Map<string, number>();
+    for (const entry of state.entries) {
+      result.set(entry.taskId, Math.max(result.get(entry.taskId) ?? 0, entry.start));
+    }
+    return result;
+  }, [state.entries]);
+  const quickTasks = useMemo(
+    () =>
+      state.tasks
+        .filter((task) => task.projectId === selectedStartProject?.id)
+        .sort(
+          (a, b) =>
+            (taskLastUsed.get(b.id) ?? b.createdAt) - (taskLastUsed.get(a.id) ?? a.createdAt),
+        ),
+    [selectedStartProject?.id, state.tasks, taskLastUsed],
+  );
+  const selectedStartTask = quickTasks.find((task) => task.id === startTaskId) ?? quickTasks[0];
 
-  // старт одним кликом: создаётся задача в выбранном проекте, таймер запускается,
-  // название дописывается в поп-апе — время уже идёт
   const startNew = () => {
-    const project = projects.find((p) => p.id === startProjectId) ?? projects[0];
+    const project = selectedStartProject;
     if (!project) return;
     const task: Task = {
       id: uid(),
@@ -189,6 +235,19 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
     dispatch({ type: 'addTask', task });
     dispatch({ type: 'startTimer', taskId: task.id, projectId: project.id });
     setNamingTaskId(task.id);
+  };
+
+  const startQuick = () => {
+    if (!selectedStartProject) return;
+    if (!selectedStartTask) {
+      startNew();
+      return;
+    }
+    dispatch({
+      type: 'startTimer',
+      taskId: selectedStartTask.id,
+      projectId: selectedStartProject.id,
+    });
   };
 
   const renderAvatar = (p: Project, size = 48) =>
@@ -203,9 +262,9 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
       <div className="screen-head">
         <h1>Time Tracker</h1>
         <div className="day-totals">
-          <span className="value">{formatDuration(todayTotals.durationMs)}</span>
+          <span className="value">{formatDuration(todayTotalsWithTimer.durationMs)}</span>
           <span className="sep">·</span>
-          <span className="value">{formatMoneyByCurrency(todayTotals.money)}</span>
+          <span className="value">{formatMoneyByCurrency(todayTotalsWithTimer.money)}</span>
         </div>
       </div>
 
@@ -262,14 +321,30 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
             {projects.length > 0 ? (
               <div className="quick-row">
                 <Select
-                  value={startProjectId || projects[0].id}
-                  onChange={setStartProjectId}
+                  value={selectedStartProject?.id ?? ''}
+                  onChange={(value) => {
+                    setStartProjectId(value);
+                    setStartTaskId('');
+                  }}
                   minWidth={200}
                   options={projects.map((p) => ({ value: p.id, label: p.name }))}
                 />
-                <button className="btn btn-primary" onClick={startNew}>
+                {quickTasks.length > 0 && (
+                  <Select
+                    value={selectedStartTask?.id ?? ''}
+                    onChange={setStartTaskId}
+                    minWidth={220}
+                    options={quickTasks.map((task) => ({ value: task.id, label: task.title }))}
+                  />
+                )}
+                <button className="btn btn-primary" onClick={startQuick}>
                   <Icon name="play" size={15} /> Старт
                 </button>
+                {quickTasks.length > 0 && (
+                  <button className="btn btn-icon" title="Новая задача" onClick={startNew}>
+                    <Icon name="plus" size={15} />
+                  </button>
+                )}
               </div>
             ) : (
               <div className="quick-row">

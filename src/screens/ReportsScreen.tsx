@@ -7,11 +7,9 @@ import {
   formatDayShort,
   formatDuration,
   formatHours,
-  fromDateInputValue,
+  reportRange,
   startOfDay,
-  startOfMonth,
-  startOfWeek,
-  toDateInputValue,
+  type ReportPeriod,
 } from '../lib/time';
 import { downloadCsv } from '../lib/csv';
 import { escapeHtml, savePdf } from '../lib/print';
@@ -20,7 +18,7 @@ import Icon from '../components/Icon';
 import Select from '../components/Select';
 import DatePicker from '../components/DatePicker';
 
-type Period = 'today' | 'week' | 'month' | '30d' | 'all' | 'custom';
+type Period = ReportPeriod;
 
 const PERIOD_LABEL: Record<Period, string> = {
   today: 'Сегодня',
@@ -123,6 +121,7 @@ export default function ReportsScreen() {
   const state = useAppState();
   const [period, setPeriod] = useState<Period>('week');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
   const [customFrom, setCustomFrom] = useState(() => addDays(startOfDay(Date.now()), -7));
   const [customTo, setCustomTo] = useState(() => startOfDay(Date.now()));
 
@@ -130,31 +129,25 @@ export default function ReportsScreen() {
   const projectById = useMemo(() => new Map(state.projects.map((p) => [p.id, p])), [state.projects]);
 
   const now = Date.now();
-  const [from, to] = useMemo((): [number, number] => {
-    switch (period) {
-      case 'today':
-        return [startOfDay(now), addDays(startOfDay(now), 1)];
-      case 'week':
-        return [startOfWeek(now), addDays(startOfWeek(now), 7)];
-      case 'month':
-        return [startOfMonth(now), addDays(now, 1)];
-      case '30d':
-        return [addDays(startOfDay(now), -29), addDays(startOfDay(now), 1)];
-      case 'all': {
-        const first = state.entries.length > 0 ? Math.min(...state.entries.map((e) => e.start)) : now;
-        return [startOfDay(first), addDays(startOfDay(now), 1)];
-      }
-      case 'custom':
-        return [customFrom, addDays(customTo, 1)];
-    }
-  }, [period, now, customFrom, customTo, state.entries]);
+  const [from, to] = useMemo(
+    () => reportRange(period, now, state.entries.map((entry) => entry.start), customFrom, customTo),
+    [period, now, customFrom, customTo, state.entries],
+  );
 
   const filtered = useMemo(
     () =>
       state.entries.filter(
-        (e) => e.start >= from && e.start < to && (projectFilter === 'all' || e.projectId === projectFilter),
+        (e) => {
+          const project = projectById.get(e.projectId);
+          return (
+            e.start >= from &&
+            e.start < to &&
+            (projectFilter === 'all' || e.projectId === projectFilter) &&
+            (clientFilter === 'all' || project?.clientId === clientFilter)
+          );
+        },
       ),
-    [state.entries, from, to, projectFilter],
+    [state.entries, from, to, projectFilter, clientFilter, projectById],
   );
 
   // сводка
@@ -250,6 +243,9 @@ export default function ReportsScreen() {
     const fmtH = (ms: number) => (ms / 3600000).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
     const sorted = [...filtered].sort((a, b) => a.start - b.start);
     const singleProject = projectFilter !== 'all' ? projectById.get(projectFilter) : undefined;
+    const singleClient = clientFilter !== 'all'
+      ? state.clients.find((client) => client.id === clientFilter)
+      : undefined;
     const periodLabel =
       `${new Date(from).toLocaleDateString('ru-RU')} — ${new Date(addDays(to, -1)).toLocaleDateString('ru-RU')}`;
 
@@ -307,6 +303,7 @@ export default function ReportsScreen() {
   <div class="sub">
     Период: ${periodLabel}
     ${singleProject ? ` · Проект: ${escapeHtml(singleProject.name)}` : ''}
+    ${singleClient ? ` · Клиент: ${escapeHtml(singleClient.name)}` : ''}
     ${singleProject?.client ? ` · Клиент: ${escapeHtml(singleProject.client)}` : ''}
   </div>
   <div class="totals">
@@ -357,11 +354,25 @@ export default function ReportsScreen() {
           </>
         )}
         <Select
+          value={clientFilter}
+          onChange={(value) => {
+            setClientFilter(value);
+            const selectedProject = projectFilter === 'all' ? undefined : projectById.get(projectFilter);
+            if (value !== 'all' && selectedProject?.clientId !== value) setProjectFilter('all');
+          }}
+          options={[
+            { value: 'all', label: 'Все клиенты' },
+            ...state.clients.map((client) => ({ value: client.id, label: client.name })),
+          ]}
+        />
+        <Select
           value={projectFilter}
           onChange={setProjectFilter}
           options={[
             { value: 'all', label: 'Все проекты' },
-            ...state.projects.map((p) => ({ value: p.id, label: p.name })),
+            ...state.projects
+              .filter((project) => clientFilter === 'all' || project.clientId === clientFilter)
+              .map((p) => ({ value: p.id, label: p.name })),
           ]}
         />
       </div>

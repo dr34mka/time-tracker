@@ -1,16 +1,20 @@
 import { createContext, useContext, useEffect, useReducer, useRef, type ReactNode, type Dispatch } from 'react';
-import type { AppState, Project, Settings, Task, TimeEntry } from './types';
-import { loadState, parseState, saveState, uid } from './lib/storage';
+import type { AppState, Client, Project, Settings, Task, TimeEntry } from './types';
+import { loadState, parseState, saveState, setDesktopBaseRaw, uid } from './lib/storage';
 import { resolveCurrency, resolveRate } from './lib/money';
 
 export type Action =
   | { type: 'addProject'; project: Project }
   | { type: 'updateProject'; project: Project }
   | { type: 'setProjectArchived'; id: string; archived: boolean }
+  | { type: 'addClient'; client: Client }
+  | { type: 'updateClient'; client: Client }
+  | { type: 'setClientArchived'; id: string; archived: boolean }
   | { type: 'addTask'; task: Task }
   | { type: 'updateTask'; task: Task }
   | { type: 'deleteTask'; id: string }
   | { type: 'addEntry'; entry: TimeEntry }
+  | { type: 'updateEntry'; entry: TimeEntry }
   | { type: 'deleteEntry'; id: string }
   | { type: 'startTimer'; taskId: string; projectId: string }
   | { type: 'pauseTimer' }
@@ -23,7 +27,7 @@ export type Action =
   | { type: 'resetAll'; state: AppState };
 
 /** Собрать запись времени из активного таймера */
-function entryFromTimer(state: AppState, now: number, note?: string): TimeEntry | null {
+export function entryFromTimer(state: AppState, now: number, note?: string): TimeEntry | null {
   const t = state.timer;
   if (!t) return null;
   const durationMs = t.accumulatedMs + (t.running ? now - t.startedAt : 0);
@@ -39,7 +43,7 @@ function entryFromTimer(state: AppState, now: number, note?: string): TimeEntry 
   };
 }
 
-function reducer(state: AppState, action: Action): AppState {
+export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'addProject':
       return { ...state, projects: [...state.projects, action.project] };
@@ -53,6 +57,23 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         projects: state.projects.map((p) =>
           p.id === action.id ? { ...p, archived: action.archived } : p,
+        ),
+      };
+    case 'addClient':
+      return { ...state, clients: [...state.clients, action.client] };
+    case 'updateClient':
+      return {
+        ...state,
+        clients: state.clients.map((client) => (client.id === action.client.id ? action.client : client)),
+        projects: state.projects.map((project) =>
+          project.clientId === action.client.id ? { ...project, client: action.client.name } : project,
+        ),
+      };
+    case 'setClientArchived':
+      return {
+        ...state,
+        clients: state.clients.map((client) =>
+          client.id === action.id ? { ...client, archived: action.archived } : client,
         ),
       };
     case 'addTask':
@@ -70,6 +91,11 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'addEntry':
       return { ...state, entries: [...state.entries, action.entry] };
+    case 'updateEntry':
+      return {
+        ...state,
+        entries: state.entries.map((entry) => (entry.id === action.entry.id ? action.entry : entry)),
+      };
     case 'deleteEntry':
       return { ...state, entries: state.entries.filter((e) => e.id !== action.id) };
 
@@ -157,6 +183,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const applyExternal = (raw: string) => {
       const incoming = parseState(raw);
       if (!incoming) return;
+      setDesktopBaseRaw(raw);
       const current = stateRef.current;
       // не теряем таймер, запущенный на этой машине
       const next = !incoming.timer && current.timer ? { ...incoming, timer: current.timer } : incoming;
@@ -172,12 +199,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         applyExternal(raw);
       } else {
         // файла ещё нет — экспортируем текущее состояние (миграция с localStorage)
-        desktop.saveData(JSON.stringify(stateRef.current));
+        setDesktopBaseRaw(null);
+        const currentRaw = JSON.stringify(stateRef.current);
+        desktop.saveData(currentRaw, null).then((saved) => {
+          if (saved) setDesktopBaseRaw(currentRaw);
+        });
       }
     });
-    desktop.onExternalChange(applyExternal);
+    const unsubscribe = desktop.onExternalChange(applyExternal);
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 

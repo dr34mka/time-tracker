@@ -5,7 +5,15 @@ import Icon from './Icon';
 import Select from './Select';
 import { uid } from '../lib/storage';
 import { formatMoney } from '../lib/money';
-import { CURRENCIES, PROJECT_COLORS, type Currency, type Project, type ProjectStatus } from '../types';
+import {
+  CURRENCIES,
+  CURRENCY_LABELS,
+  PROJECT_COLORS,
+  type Client,
+  type Currency,
+  type Project,
+  type ProjectStatus,
+} from '../types';
 
 export const STATUS_LABEL: Record<ProjectStatus, string> = {
   active: 'активный',
@@ -46,7 +54,9 @@ export default function ProjectForm({ initial, onClose }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [name, setName] = useState(initial?.name ?? '');
-  const [client, setClient] = useState(initial?.client ?? '');
+  const initialClientMode = initial?.clientId ?? (initial?.client ? '__new' : '');
+  const [clientId, setClientId] = useState(initialClientMode);
+  const [newClientName, setNewClientName] = useState(initial?.clientId ? '' : initial?.client ?? '');
   const [color, setColor] = useState(initial?.color ?? PROJECT_COLORS[0]);
   const [avatar, setAvatar] = useState<string | undefined>(initial?.avatar);
   const [status, setStatus] = useState<ProjectStatus>(initial?.status ?? 'active');
@@ -67,10 +77,23 @@ export default function ProjectForm({ initial, onClose }: Props) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    let selectedClient: Client | undefined;
+    if (clientId === '__new' && newClientName.trim()) {
+      selectedClient = {
+        id: uid(),
+        name: newClientName.trim(),
+        archived: false,
+        createdAt: Date.now(),
+      };
+      dispatch({ type: 'addClient', client: selectedClient });
+    } else if (clientId) {
+      selectedClient = state.clients.find((client) => client.id === clientId);
+    }
     const project: Project = {
       id: initial?.id ?? uid(),
       name: name.trim(),
-      client: client.trim(),
+      clientId: selectedClient?.id,
+      client: selectedClient?.name ?? '',
       color,
       avatar,
       status,
@@ -92,7 +115,26 @@ export default function ProjectForm({ initial, onClose }: Props) {
         </div>
         <div className="field">
           <label>Клиент</label>
-          <input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Имя клиента или компании" />
+          <Select
+            block
+            value={clientId}
+            onChange={setClientId}
+            options={[
+              { value: '', label: 'Без клиента' },
+              ...state.clients
+                .filter((client) => !client.archived || client.id === initial?.clientId)
+                .map((client) => ({ value: client.id, label: client.name })),
+              { value: '__new', label: '+ Новый клиент' },
+            ]}
+          />
+          {clientId === '__new' && (
+            <input
+              style={{ marginTop: 8 }}
+              value={newClientName}
+              onChange={(event) => setNewClientName(event.target.value)}
+              placeholder="Имя клиента или компании"
+            />
+          )}
         </div>
         <div className="field">
           <label>Аватарка</label>
@@ -174,7 +216,7 @@ export default function ProjectForm({ initial, onClose }: Props) {
                   block
                   value={currency}
                   onChange={(v) => setCurrency(v as Currency)}
-                  options={CURRENCIES.map((c) => ({ value: c, label: c === 'RUB' ? '₽ RUB' : '$ USD' }))}
+                  options={CURRENCIES.map((c) => ({ value: c, label: CURRENCY_LABELS[c] }))}
                 />
               </div>
             </div>

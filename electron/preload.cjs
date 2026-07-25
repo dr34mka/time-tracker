@@ -10,14 +10,14 @@ function subscribe(channel, cb) {
 contextBridge.exposeInMainWorld('desktop', {
   // файловое хранилище
   loadData: () => ipcRenderer.invoke('data:load'),
-  saveData: (raw) => ipcRenderer.invoke('data:save', raw),
+  saveData: (raw, expectedRaw) => ipcRenderer.invoke('data:save', raw, expectedRaw),
   getInfo: () => ipcRenderer.invoke('data:info'),
   openDataDir: () => ipcRenderer.invoke('data:open-dir'),
+  resolveDataConflict: (choice) => ipcRenderer.invoke('data:resolve-conflict', choice),
   chooseDataDir: () => ipcRenderer.invoke('data:choose-dir'),
   renderPdf: (html) => ipcRenderer.invoke('pdf:render', html),
-  onExternalChange: (cb) => {
-    ipcRenderer.on('data:external-change', (_event, raw) => cb(raw));
-  },
+  onExternalChange: (cb) => subscribe('data:external-change', cb),
+  onDataConflict: (cb) => subscribe('data:conflict', cb),
 
   // трей (главное окно → меню-бар)
   setTrayState: (snapshot) => ipcRenderer.send('tray:state', snapshot),

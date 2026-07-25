@@ -19,38 +19,64 @@ const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, i) => {
   return { value: v, label: v };
 });
 
-/** Модалка ручного добавления времени */
-function ManualEntryModal({ task, onClose }: { task: Task; onClose: () => void }) {
+/** Добавление или редактирование записи времени */
+function EntryModal({
+  task,
+  tasks,
+  entry,
+  onClose,
+}: {
+  task: Task;
+  tasks: Task[];
+  entry?: TimeEntry;
+  onClose: () => void;
+}) {
   const dispatch = useAppDispatch();
-  const [dateTs, setDateTs] = useState(() => startOfDay(Date.now()));
-  const [startTime, setStartTime] = useState('10:00');
-  const [hours, setHours] = useState('1');
-  const [minutes, setMinutes] = useState('0');
-  const [note, setNote] = useState('');
+  const initialDurationMinutes = Math.max(1, Math.round((entry?.durationMs ?? 3_600_000) / 60_000));
+  const [taskId, setTaskId] = useState(entry?.taskId ?? task.id);
+  const [dateTs, setDateTs] = useState(() => startOfDay(entry?.start ?? Date.now()));
+  const [startTime, setStartTime] = useState(() => {
+    const date = new Date(entry?.start ?? new Date().setHours(10, 0, 0, 0));
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  });
+  const [hours, setHours] = useState(String(Math.floor(initialDurationMinutes / 60)));
+  const [minutes, setMinutes] = useState(String(initialDurationMinutes % 60));
+  const [note, setNote] = useState(entry?.note ?? '');
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const durationMs = (Number(hours) * 60 + Number(minutes)) * 60000;
     if (durationMs <= 0) return;
     const [h, m] = startTime.split(':').map(Number);
-    const start = dateTs + (h * 60 + m) * 60000;
-    const entry: TimeEntry = {
-      id: uid(),
-      taskId: task.id,
+    const startDate = new Date(dateTs);
+    startDate.setHours(h, m, 0, 0);
+    const start = startDate.getTime();
+    const nextEntry: TimeEntry = {
+      id: entry?.id ?? uid(),
+      taskId,
       projectId: task.projectId,
       start,
       end: start + durationMs,
       durationMs,
       note: note.trim() || undefined,
-      manual: true,
+      manual: entry?.manual ?? true,
     };
-    dispatch({ type: 'addEntry', entry });
+    dispatch({ type: entry ? 'updateEntry' : 'addEntry', entry: nextEntry });
     onClose();
   };
 
   return (
-    <Modal title={`Добавить время — ${task.title}`} onClose={onClose}>
+    <Modal title={entry ? 'Редактировать запись' : `Добавить время — ${task.title}`} onClose={onClose}>
       <form onSubmit={submit}>
+        <div className="field">
+          <label>Задача</label>
+          <Select
+            block
+            value={taskId}
+            onChange={setTaskId}
+            options={tasks.map((item) => ({ value: item.id, label: item.title }))}
+          />
+        </div>
         <div className="field-row">
           <div className="field">
             <label>Дата</label>
@@ -80,7 +106,7 @@ function ManualEntryModal({ task, onClose }: { task: Task; onClose: () => void }
             Отмена
           </button>
           <button type="submit" className="btn btn-primary">
-            Добавить
+            {entry ? 'Сохранить' : 'Добавить'}
           </button>
         </div>
       </form>
@@ -99,7 +125,7 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [newTitle, setNewTitle] = useState('');
-  const [manualTask, setManualTask] = useState<Task | null>(null);
+  const [entryEditor, setEntryEditor] = useState<{ task: Task; entry?: TimeEntry } | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
@@ -229,6 +255,7 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
               }
               const isCurrent = state.timer?.taskId === task.id;
               const isRunning = isCurrent && state.timer!.running;
+              const canStart = project.status === 'active' || isCurrent;
               const rate = resolveRate(task, project, state.settings);
               const expanded = expandedTask === task.id;
               return (
@@ -236,7 +263,14 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
                   <div className="task-row">
                     <button
                       className={'btn btn-play' + (isRunning ? ' running' : '')}
-                      title={isRunning ? 'Пауза' : 'Старт таймера'}
+                      disabled={!canStart}
+                      title={
+                        isRunning
+                          ? 'Пауза'
+                          : canStart
+                            ? 'Старт таймера'
+                            : 'Сначала переведите проект в активный статус'
+                      }
                       onClick={() =>
                         isRunning
                           ? dispatch({ type: 'pauseTimer' })
@@ -266,7 +300,11 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
                       <Icon name="chevron-down" size={14} className={expanded ? 'select-chev open' : 'select-chev'} />
                     </button>
                     <div className="task-actions">
-                      <button className="btn btn-icon btn-warn" title="Добавить время вручную" onClick={() => setManualTask(task)}>
+                      <button
+                        className="btn btn-icon btn-warn"
+                        title="Добавить время вручную"
+                        onClick={() => setEntryEditor({ task })}
+                      >
                         <Icon name="plus" size={15} />
                       </button>
                       <button
@@ -305,6 +343,14 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
                                 {formatMoneyByCurrency({ [c.currency]: c.amount })}
                               </span>
                               <button
+                                className="btn btn-ghost btn-icon"
+                                style={{ padding: '2px 4px' }}
+                                title="Редактировать запись"
+                                onClick={() => setEntryEditor({ task, entry: e })}
+                              >
+                                <Icon name="edit" size={13} />
+                              </button>
+                              <button
                                 className="btn btn-ghost btn-icon btn-danger"
                                 style={{ padding: '2px 4px' }}
                                 title="Удалить запись"
@@ -325,7 +371,14 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
         )}
       </div>
 
-      {manualTask && <ManualEntryModal task={manualTask} onClose={() => setManualTask(null)} />}
+      {entryEditor && (
+        <EntryModal
+          task={entryEditor.task}
+          tasks={tasks}
+          entry={entryEditor.entry}
+          onClose={() => setEntryEditor(null)}
+        />
+      )}
       {pendingDelete && (
         <ConfirmModal
           title={pendingDelete.kind === 'task' ? 'Удалить задачу?' : 'Удалить запись?'}
