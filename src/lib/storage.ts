@@ -91,7 +91,6 @@ function parseClient(value: unknown): Client | null {
     id,
     name,
     company: optionalString(value.company),
-    email: optionalString(value.email),
     notes: optionalString(value.notes),
     archived: value.archived === true,
     createdAt: finiteNumber(value.createdAt, Date.now()),

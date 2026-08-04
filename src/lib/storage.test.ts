@@ -80,6 +80,21 @@ describe('parseState', () => {
     expect(parsed?.settings.currency).toBe('RUB');
   });
 
+  it('drops the removed client email field from older data', () => {
+    const parsed = parseState(
+      JSON.stringify({
+        settings: {},
+        clients: [{ id: 'c1', name: 'Acme', email: 'old@example.com' }],
+        projects: [],
+        tasks: [],
+        entries: [],
+        timer: null,
+      }),
+    );
+
+    expect(parsed?.clients[0]).toEqual(expect.not.objectContaining({ email: expect.anything() }));
+  });
+
   it('filters invalid relations instead of crashing the app', () => {
     const parsed = parseState(
       JSON.stringify({

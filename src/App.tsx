@@ -10,13 +10,15 @@ import ProjectDetailScreen from './screens/ProjectDetailScreen';
 import ReportsScreen from './screens/ReportsScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ClientsScreen from './screens/ClientsScreen';
+import ClientDetailScreen from './screens/ClientDetailScreen';
 import { useAppDispatch, useAppState } from './state';
 
 export type Route =
   | { name: 'today' }
   | { name: 'projects' }
   | { name: 'clients' }
-  | { name: 'project'; id: string }
+  | { name: 'client'; id: string }
+  | { name: 'project'; id: string; clientId?: string }
   | { name: 'reports' }
   | { name: 'settings' };
 
@@ -61,7 +63,9 @@ export default function App() {
   }, [dispatch, state.entries, state.projects, state.tasks, state.timer]);
 
   const isActive = (r: Route) =>
-    r.name === route.name || (r.name === 'projects' && route.name === 'project');
+    r.name === route.name ||
+    (r.name === 'projects' && route.name === 'project' && !route.clientId) ||
+    (r.name === 'clients' && (route.name === 'client' || (route.name === 'project' && Boolean(route.clientId))));
 
   return (
     <div className="app">
@@ -72,9 +76,24 @@ export default function App() {
         <div className="content">
           {route.name === 'today' && <TodayScreen onOpenProject={(id) => setRoute({ name: 'project', id })} />}
           {route.name === 'projects' && <ProjectsScreen onOpenProject={(id) => setRoute({ name: 'project', id })} />}
-          {route.name === 'clients' && <ClientsScreen />}
+          {route.name === 'clients' && (
+            <ClientsScreen onOpenClient={(id) => setRoute({ name: 'client', id })} />
+          )}
+          {route.name === 'client' && (
+            <ClientDetailScreen
+              clientId={route.id}
+              onBack={() => setRoute({ name: 'clients' })}
+              onOpenProject={(id) => setRoute({ name: 'project', id, clientId: route.id })}
+            />
+          )}
           {route.name === 'project' && (
-            <ProjectDetailScreen projectId={route.id} onBack={() => setRoute({ name: 'projects' })} />
+            <ProjectDetailScreen
+              projectId={route.id}
+              backTitle={route.clientId ? 'К клиенту' : 'К проектам'}
+              onBack={() =>
+                setRoute(route.clientId ? { name: 'client', id: route.clientId } : { name: 'projects' })
+              }
+            />
           )}
           {route.name === 'reports' && <ReportsScreen />}
           {route.name === 'settings' && <SettingsScreen />}

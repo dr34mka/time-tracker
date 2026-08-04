@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import DatePicker from '../components/DatePicker';
 import Select from '../components/Select';
 import Icon from '../components/Icon';
+import TaskNameModal from '../components/TaskNameModal';
 import { uid } from '../lib/storage';
 import { computeEntry, formatMoney, formatMoneyByCurrency, resolveCurrency, resolveRate } from '../lib/money';
 import { formatDay, formatDuration, formatHours, formatTime, startOfDay } from '../lib/time';
@@ -119,13 +120,15 @@ type PendingDelete = { kind: 'task'; id: string; title: string } | { kind: 'entr
 interface Props {
   projectId: string;
   onBack: () => void;
+  backTitle?: string;
 }
 
-export default function ProjectDetailScreen({ projectId, onBack }: Props) {
+export default function ProjectDetailScreen({ projectId, onBack, backTitle = 'К проектам' }: Props) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [newTitle, setNewTitle] = useState('');
   const [entryEditor, setEntryEditor] = useState<{ task: Task; entry?: TimeEntry } | null>(null);
+  const [renamingTask, setRenamingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
@@ -193,7 +196,7 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
     <>
       <div className="screen-head">
         <div className="row">
-          <button className="btn btn-ghost btn-icon" onClick={onBack} title="К проектам">
+          <button className="btn btn-ghost btn-icon" onClick={onBack} title={backTitle}>
             <Icon name="back" size={18} />
           </button>
           {project.avatar ? (
@@ -301,6 +304,13 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
                     </button>
                     <div className="task-actions">
                       <button
+                        className="btn btn-icon btn-edit"
+                        title="Переименовать задачу"
+                        onClick={() => setRenamingTask(task)}
+                      >
+                        <Icon name="edit" size={15} />
+                      </button>
+                      <button
                         className="btn btn-icon btn-warn"
                         title="Добавить время вручную"
                         onClick={() => setEntryEditor({ task })}
@@ -379,6 +389,7 @@ export default function ProjectDetailScreen({ projectId, onBack }: Props) {
           onClose={() => setEntryEditor(null)}
         />
       )}
+      {renamingTask && <TaskNameModal task={renamingTask} onClose={() => setRenamingTask(null)} />}
       {pendingDelete && (
         <ConfirmModal
           title={pendingDelete.kind === 'task' ? 'Удалить задачу?' : 'Удалить запись?'}

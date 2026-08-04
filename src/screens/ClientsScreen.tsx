@@ -1,9 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useAppDispatch, useAppState } from '../state';
-import { computeEntry, formatMoneyByCurrency } from '../lib/money';
+import { formatMoneyByCurrency } from '../lib/money';
 import { formatHours } from '../lib/time';
 import { uid } from '../lib/storage';
-import type { Client, Currency } from '../types';
+import { getClientWorkSummary } from '../lib/client';
+import type { Client } from '../types';
 import Icon from '../components/Icon';
 import Modal from '../components/Modal';
 
@@ -11,7 +12,6 @@ function ClientForm({ initial, onClose }: { initial?: Client; onClose: () => voi
   const dispatch = useAppDispatch();
   const [name, setName] = useState(initial?.name ?? '');
   const [company, setCompany] = useState(initial?.company ?? '');
-  const [email, setEmail] = useState(initial?.email ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
 
   const submit = (event: FormEvent) => {
@@ -21,7 +21,6 @@ function ClientForm({ initial, onClose }: { initial?: Client; onClose: () => voi
       id: initial?.id ?? uid(),
       name: name.trim(),
       company: company.trim() || undefined,
-      email: email.trim() || undefined,
       notes: notes.trim() || undefined,
       archived: initial?.archived ?? false,
       createdAt: initial?.createdAt ?? Date.now(),
@@ -44,10 +43,6 @@ function ClientForm({ initial, onClose }: { initial?: Client; onClose: () => voi
           </div>
         </div>
         <div className="field">
-          <label>Email</label>
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </div>
-        <div className="field">
           <label>Заметки</label>
           <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
         </div>
@@ -64,68 +59,33 @@ function ClientForm({ initial, onClose }: { initial?: Client; onClose: () => voi
   );
 }
 
-export default function ClientsScreen() {
+export default function ClientsScreen({ onOpenClient }: { onOpenClient: (id: string) => void }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Client | undefined>();
   const [showArchived, setShowArchived] = useState(false);
 
-  const taskById = useMemo(() => new Map(state.tasks.map((task) => [task.id, task])), [state.tasks]);
-  const projectById = useMemo(
-    () => new Map(state.projects.map((project) => [project.id, project])),
-    [state.projects],
+  const summaries = useMemo(
+    () => new Map(state.clients.map((client) => [client.id, getClientWorkSummary(state, client.id)])),
+    [state],
   );
-  const totals = useMemo(() => {
-    const result = new Map<string, { durationMs: number; money: Partial<Record<Currency, number>> }>();
-    for (const entry of state.entries) {
-      const project = projectById.get(entry.projectId);
-      if (!project?.clientId) continue;
-      const computed = computeEntry(entry, taskById, projectById, state.settings);
-      const current = result.get(project.clientId) ?? { durationMs: 0, money: {} };
-      current.durationMs += computed.durationMs;
-      current.money[computed.currency] = (current.money[computed.currency] ?? 0) + computed.amount;
-      result.set(project.clientId, current);
-    }
-    return result;
-  }, [projectById, state.entries, state.settings, taskById]);
 
   const visible = state.clients.filter((client) => !client.archived);
   const archived = state.clients.filter((client) => client.archived);
 
   const renderClient = (client: Client) => {
-    const projectCount = state.projects.filter(
-      (project) => project.clientId === client.id && !project.archived,
-    ).length;
-    const total = totals.get(client.id);
+    const total = summaries.get(client.id);
+    const projectCount = total?.projects.filter(({ project }) => !project.archived).length ?? 0;
     return (
-      <div className="project-card" key={client.id}>
+      <div className="project-card client-card" key={client.id} onClick={() => onOpenClient(client.id)}>
         <div className="row">
           <span className="client-avatar">{client.name.slice(0, 1).toLocaleUpperCase('ru-RU')}</span>
           <div className="grow">
             <b>{client.name}</b>
             {client.company && <div className="meta">{client.company}</div>}
           </div>
-          <div className="card-actions">
-            <button
-              className="btn btn-icon btn-ghost"
-              title="Редактировать клиента"
-              onClick={() => setEditing(client)}
-            >
-              <Icon name="edit" size={15} />
-            </button>
-            <button
-              className="btn btn-icon btn-ghost"
-              title={client.archived ? 'Вернуть из архива' : 'Архивировать клиента'}
-              onClick={() =>
-                dispatch({ type: 'setClientArchived', id: client.id, archived: !client.archived })
-              }
-            >
-              <Icon name={client.archived ? 'restore' : 'archive'} size={15} />
-            </button>
-          </div>
         </div>
-        {client.email && <div className="client-contact">{client.email}</div>}
         <div className="stats">
           <div className="stat">
             <span className="value">{projectCount}</span>
@@ -141,6 +101,20 @@ export default function ClientsScreen() {
           </div>
         </div>
         {client.notes && <div className="client-notes">{client.notes}</div>}
+        <div className="card-actions" onClick={(event) => event.stopPropagation()}>
+          <button className="btn btn-edit" onClick={() => setEditing(client)}>
+            <Icon name="edit" size={14} strokeWidth={1.8} /> Изменить
+          </button>
+          <button
+            className="btn btn-archive"
+            onClick={() =>
+              dispatch({ type: 'setClientArchived', id: client.id, archived: !client.archived })
+            }
+          >
+            <Icon name={client.archived ? 'restore' : 'archive'} size={14} strokeWidth={1.8} />{' '}
+            {client.archived ? 'Восстановить' : 'В архив'}
+          </button>
+        </div>
       </div>
     );
   };

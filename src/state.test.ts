@@ -66,6 +66,39 @@ describe('state reducer', () => {
     expect(state.entries[0]).toMatchObject({ durationMs: 60_000, note: 'Fixed' });
   });
 
+  it('renames a task without disconnecting its timer or entries', () => {
+    const base = stateWithProject();
+    const entry: TimeEntry = {
+      id: 'entry',
+      projectId: 'project',
+      taskId: 'task',
+      start: 1,
+      end: 60_001,
+      durationMs: 60_000,
+    };
+    const state: AppState = {
+      ...base,
+      entries: [entry],
+      timer: {
+        taskId: 'task',
+        projectId: 'project',
+        startedAt: 1,
+        firstStartedAt: 1,
+        accumulatedMs: 0,
+        running: true,
+      },
+    };
+
+    const next = reducer(state, {
+      type: 'updateTask',
+      task: { ...state.tasks[0], title: 'Renamed task' },
+    });
+
+    expect(next.tasks[0].title).toBe('Renamed task');
+    expect(next.entries[0].taskId).toBe('task');
+    expect(next.timer?.taskId).toBe('task');
+  });
+
   it('keeps project client snapshots in sync after a client rename', () => {
     const state = stateWithProject();
     const next = reducer(state, {

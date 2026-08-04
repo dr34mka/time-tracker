@@ -1,10 +1,8 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppDispatch, useAppState } from '../state';
 import { useNow, timerElapsed } from '../hooks';
 import { uid } from '../lib/storage';
-import Modal from '../components/Modal';
 import Select from '../components/Select';
-import DatePicker from '../components/DatePicker';
 import {
   addDays,
   currentStreak,
@@ -12,11 +10,9 @@ import {
   formatClock,
   formatDuration,
   formatHours,
-  fromDateInputValue,
   plural,
   startOfDay,
   startOfWeek,
-  toDateInputValue,
 } from '../lib/time';
 import {
   amountFor,
@@ -30,57 +26,11 @@ import type { Currency, Project, Task } from '../types';
 import Icon from '../components/Icon';
 import { AnimateDigits } from '../components/AnimateDigits';
 import ProjectForm, { STATUS_LABEL } from '../components/ProjectForm';
+import TaskNameModal from '../components/TaskNameModal';
 
 const WEEK_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 const PLACEHOLDER_TITLE = 'Новая задача';
-
-/** Поп-ап названия задачи: таймер уже идёт, пользователь просто дописывает название */
-function TaskNameModal({ task, onClose }: { task: Task; onClose: () => void }) {
-  const dispatch = useAppDispatch();
-  const [title, setTitle] = useState(task.title === PLACEHOLDER_TITLE ? '' : task.title);
-  const [dateTs, setDateTs] = useState(() => startOfDay(Date.now()));
-
-  const save = (e: FormEvent) => {
-    e.preventDefault();
-    const t = title.trim();
-    if (t) dispatch({ type: 'updateTask', task: { ...task, title: t } });
-    if (dayKey(dateTs) !== dayKey(Date.now())) {
-      dispatch({ type: 'setTimerStartDate', dateTs });
-    }
-    onClose();
-  };
-
-  return (
-    <Modal title="Над чем работаете?" onClose={onClose}>
-      <form onSubmit={save}>
-        <div className="field-row">
-          <div className="field" style={{ flex: 2 }}>
-            <label>Название задачи</label>
-            <input
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Например: правки главного экрана"
-            />
-          </div>
-          <div className="field">
-            <label>Дата</label>
-            <DatePicker value={dateTs} onChange={setDateTs} />
-          </div>
-        </div>
-        <p className="hint" style={{ margin: '0 0 4px' }}>
-          Таймер уже запущен — время трекается, пока вы пишете. Запись уйдёт на выбранную дату.
-        </p>
-        <div className="modal-actions">
-          <button type="submit" className="btn btn-primary">
-            Сохранить
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
 
 /** Кольцо прогресса сегодняшнего дня в недельной полосе */
 function TodayRing({ progress }: { progress: number }) {
@@ -276,7 +226,15 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
                 className="dot"
                 style={{ background: activeProject?.color, display: 'inline-block', marginRight: 8 }}
               />
-              {activeTask?.title ?? 'Задача'}
+              <button
+                className="task-name-button"
+                disabled={!activeTask}
+                title="Переименовать задачу"
+                onClick={() => activeTask && setNamingTaskId(activeTask.id)}
+              >
+                <span>{activeTask?.title ?? 'Задача'}</span>
+                <Icon name="edit" size={13} />
+              </button>
               <span className="meta"> · {activeProject?.name}</span>
             </div>
             <div className={'timer-clock' + (timer.running ? '' : ' paused')}>
@@ -330,12 +288,21 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
                   options={projects.map((p) => ({ value: p.id, label: p.name }))}
                 />
                 {quickTasks.length > 0 && (
-                  <Select
-                    value={selectedStartTask?.id ?? ''}
-                    onChange={setStartTaskId}
-                    minWidth={220}
-                    options={quickTasks.map((task) => ({ value: task.id, label: task.title }))}
-                  />
+                  <>
+                    <Select
+                      value={selectedStartTask?.id ?? ''}
+                      onChange={setStartTaskId}
+                      minWidth={220}
+                      options={quickTasks.map((task) => ({ value: task.id, label: task.title }))}
+                    />
+                    <button
+                      className="btn btn-icon btn-edit"
+                      title="Переименовать выбранную задачу"
+                      onClick={() => selectedStartTask && setNamingTaskId(selectedStartTask.id)}
+                    >
+                      <Icon name="edit" size={14} />
+                    </button>
+                  </>
                 )}
                 <button className="btn btn-primary" onClick={startQuick}>
                   <Icon name="play" size={15} /> Старт
@@ -501,7 +468,11 @@ export default function TodayScreen({ onOpenProject }: { onOpenProject: (id: str
 
       {formOpen && <ProjectForm onClose={() => setFormOpen(false)} />}
       {namingTaskId && taskById.get(namingTaskId) && (
-        <TaskNameModal task={taskById.get(namingTaskId)!} onClose={() => setNamingTaskId(null)} />
+        <TaskNameModal
+          task={taskById.get(namingTaskId)!}
+          timerDate={taskById.get(namingTaskId)?.title === PLACEHOLDER_TITLE}
+          onClose={() => setNamingTaskId(null)}
+        />
       )}
     </>
   );

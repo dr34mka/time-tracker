@@ -13,10 +13,11 @@ import {
 } from '../lib/time';
 import { downloadCsv } from '../lib/csv';
 import { escapeHtml, savePdf } from '../lib/print';
-import type { Currency } from '../types';
+import type { Currency, Task } from '../types';
 import Icon from '../components/Icon';
 import Select from '../components/Select';
 import DatePicker from '../components/DatePicker';
+import TaskNameModal from '../components/TaskNameModal';
 
 type Period = ReportPeriod;
 
@@ -122,6 +123,7 @@ export default function ReportsScreen() {
   const [period, setPeriod] = useState<Period>('week');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
+  const [renamingTask, setRenamingTask] = useState<Task | null>(null);
   const [customFrom, setCustomFrom] = useState(() => addDays(startOfDay(Date.now()), -7));
   const [customTo, setCustomTo] = useState(() => startOfDay(Date.now()));
 
@@ -428,7 +430,20 @@ export default function ReportsScreen() {
                         const task = taskById.get(taskId);
                         return (
                           <tr key={taskId}>
-                            <td style={{ paddingLeft: 32 }}>{task?.title ?? 'Удалённая задача'}</td>
+                            <td style={{ paddingLeft: 32 }}>
+                              <div className="row">
+                                <span className="grow">{task?.title ?? 'Удалённая задача'}</span>
+                                {task && (
+                                  <button
+                                    className="btn btn-icon btn-edit report-task-edit"
+                                    title="Переименовать задачу"
+                                    onClick={() => setRenamingTask(task)}
+                                  >
+                                    <Icon name="edit" size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
                             <td className="num">{(agg.durationMs / 3600000).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
                             <td className="num">{(agg.billedMin / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
                             <td className="num">{formatMoneyByCurrency(agg.money)}</td>
@@ -449,6 +464,7 @@ export default function ReportsScreen() {
           </div>
         )}
       </div>
+      {renamingTask && <TaskNameModal task={renamingTask} onClose={() => setRenamingTask(null)} />}
     </>
   );
 }

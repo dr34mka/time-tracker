@@ -384,17 +384,126 @@ kbd {
   font-weight: 600;
 }
 
-.client-contact,
-.client-notes {
-  margin-top: 12px;
-  color: var(--ink-2);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+.client-card .client-avatar {
+  width: 48px;
+  height: 48px;
 }
 
 .client-notes {
+  margin-top: 18px;
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.client-avatar-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 30px;
+}
+
+.client-detail-notes {
+  max-width: 720px;
+  margin: -8px 0 24px 64px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.client-work-title {
+  margin-bottom: 16px;
+}
+
+.client-projects {
+  display: grid;
+  gap: 16px;
+}
+
+.client-project-work {
+  background: var(--card-sheen), var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.client-project-head {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.client-project-head b {
+  display: block;
+  font-size: 15px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-project-empty {
+  padding: 20px;
+  color: var(--muted);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.client-task-list {
+  padding: 6px 20px;
+}
+
+.client-task-row {
+  display: grid;
+  grid-template-columns: 28px minmax(180px, 1fr) minmax(180px, max-content) 36px;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.client-task-row:last-child {
+  border-bottom: none;
+}
+
+.client-task-check {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.client-task-name {
+  min-width: 0;
+}
+
+.client-task-name b,
+.client-task-name .meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.client-task-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  white-space: nowrap;
 }
 
 /* ===== Анимированные цифры таймера ===== */
@@ -1051,6 +1160,35 @@ input[type='checkbox']:checked::after {
   font-weight: 600;
   line-height: 1.2;
 }
+.task-name-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(520px, 72vw);
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+.task-name-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-name-button svg {
+  flex: none;
+  color: var(--muted);
+}
+.task-name-button:hover {
+  background: var(--surface-2);
+}
+.task-name-button:disabled {
+  cursor: default;
+}
 .timer-controls {
   display: flex;
   gap: 8px;
@@ -1156,6 +1294,12 @@ table.report td.num,
 table.report th.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.report-task-edit {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
 }
 table.report tr.group-row td {
   font-weight: 600;
@@ -1435,6 +1579,43 @@ kbd {
   .field-row {
     flex-direction: column;
     gap: 0;
+  }
+  .project-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .project-card {
+    padding: 20px;
+  }
+  .client-detail-notes {
+    margin-left: 0;
+  }
+  .client-summary-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .client-project-head {
+    grid-template-columns: 40px minmax(0, 1fr) max-content;
+    padding: 16px;
+  }
+  .client-project-head .btn {
+    grid-column: 2 / -1;
+    justify-content: center;
+  }
+  .client-task-list {
+    padding-inline: 16px;
+  }
+  .client-task-row {
+    grid-template-columns: 28px minmax(0, 1fr) 36px;
+    gap: 10px;
+  }
+  .client-task-metrics {
+    grid-column: 2;
+    justify-content: flex-start;
+    gap: 16px;
+  }
+  .client-task-row > .btn {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
   .goal-numbers .big {
     font-size: 28px;

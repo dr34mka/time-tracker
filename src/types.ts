@@ -36,7 +36,6 @@ export interface Client {
   id: string;
   name: string;
   company?: string;
-  email?: string;
   notes?: string;
   archived: boolean;
   createdAt: number;
