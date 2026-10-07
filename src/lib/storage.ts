@@ -133,7 +133,7 @@ function parseTask(value: unknown, projectIds: Set<string>): Task | null {
   };
 }
 
-function parseEntry(value: unknown, projectIds: Set<string>, taskIds: Set<string>): TimeEntry | null {
+function parseEntry(value: unknown, projectIds: Set<string>, taskProjects: Map<string, string>): TimeEntry | null {
   if (!isRecord(value)) return null;
   const id = stringValue(value.id).trim();
   const projectId = stringValue(value.projectId).trim();
@@ -143,7 +143,7 @@ function parseEntry(value: unknown, projectIds: Set<string>, taskIds: Set<string
   if (
     !id ||
     !projectIds.has(projectId) ||
-    !taskIds.has(taskId) ||
+    taskProjects.get(taskId) !== projectId ||
     !Number.isFinite(start) ||
     !Number.isFinite(durationMs) ||
     durationMs <= 0
@@ -162,11 +162,11 @@ function parseEntry(value: unknown, projectIds: Set<string>, taskIds: Set<string
   };
 }
 
-function parseTimer(value: unknown, projectIds: Set<string>, taskIds: Set<string>): ActiveTimer | null {
+function parseTimer(value: unknown, projectIds: Set<string>, taskProjects: Map<string, string>): ActiveTimer | null {
   if (!isRecord(value)) return null;
   const projectId = stringValue(value.projectId).trim();
   const taskId = stringValue(value.taskId).trim();
-  if (!projectIds.has(projectId) || !taskIds.has(taskId)) return null;
+  if (!projectIds.has(projectId) || taskProjects.get(taskId) !== projectId) return null;
   const startedAt = finiteNumber(value.startedAt, NaN);
   const firstStartedAt = finiteNumber(value.firstStartedAt, startedAt);
   const accumulatedMs = Math.max(0, finiteNumber(value.accumulatedMs, 0));
@@ -224,9 +224,9 @@ export function parseState(raw: string): AppState | null {
     const tasks = (Array.isArray(parsed.tasks) ? parsed.tasks : [])
       .map((task) => parseTask(task, projectIds))
       .filter((task): task is Task => task !== null);
-    const taskIds = new Set(tasks.map((task) => task.id));
+    const taskProjects = new Map(tasks.map((task) => [task.id, task.projectId]));
     const entries = (Array.isArray(parsed.entries) ? parsed.entries : [])
-      .map((entry) => parseEntry(entry, projectIds, taskIds))
+      .map((entry) => parseEntry(entry, projectIds, taskProjects))
       .filter((entry): entry is TimeEntry => entry !== null);
 
     return {
@@ -236,7 +236,7 @@ export function parseState(raw: string): AppState | null {
       projects,
       tasks,
       entries,
-      timer: parseTimer(parsed.timer, projectIds, taskIds),
+      timer: parseTimer(parsed.timer, projectIds, taskProjects),
     };
   } catch {
     return null;

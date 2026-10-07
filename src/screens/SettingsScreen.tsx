@@ -82,8 +82,8 @@ export default function SettingsScreen() {
         <h2 style={{ marginBottom: 16 }}>Ставка и биллинг</h2>
         <div className="field-row">
           <div className="field">
-            <label>Глобальная ставка (в час)</label>
-            <input
+            <label htmlFor="settingsscreen-field-1">Глобальная ставка (в час)</label>
+            <input id="settingsscreen-field-1"
               type="number"
               min="0"
               step="0.5"
@@ -94,7 +94,7 @@ export default function SettingsScreen() {
           </div>
           <div className="field">
             <label>Валюта по умолчанию</label>
-            <Select
+            <Select aria-label="Валюта по умолчанию"
               block
               value={s.currency}
               onChange={(v) => dispatch({ type: 'updateSettings', settings: { currency: v as Currency } })}
@@ -107,8 +107,8 @@ export default function SettingsScreen() {
         </div>
         <div className="field-row">
           <div className="field">
-            <label>Цель дня (часов)</label>
-            <input
+            <label htmlFor="settingsscreen-field-2">Цель дня (часов)</label>
+            <input id="settingsscreen-field-2"
               type="number"
               min="1"
               max="16"
@@ -127,7 +127,7 @@ export default function SettingsScreen() {
         </div>
         <div className="field">
           <label>Минимальный интервал биллинга</label>
-          <Select
+          <Select aria-label="Минимальный интервал биллинга"
             block
             value={String(s.roundingMinutes)}
             onChange={(v) => dispatch({ type: 'updateSettings', settings: { roundingMinutes: Number(v) } })}

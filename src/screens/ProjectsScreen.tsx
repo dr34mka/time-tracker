@@ -44,7 +44,7 @@ export default function ProjectsScreen({ onOpenProject }: { onOpenProject: (id: 
             <span className="avatar avatar-empty" style={{ background: p.color }} />
           )}
           <div className="grow">
-            <b>{p.name}</b>
+            <button className="project-open" onClick={(event) => { event.stopPropagation(); onOpenProject(p.id); }}>{p.name}</button>
             {p.client && <div className="meta">{p.client}</div>}
           </div>
           <span className={'badge' + (p.status === 'active' ? ' active' : '')}>{STATUS_LABEL[p.status]}</span>

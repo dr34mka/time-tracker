@@ -34,17 +34,17 @@ function ClientForm({ initial, onClose }: { initial?: Client; onClose: () => voi
       <form onSubmit={submit}>
         <div className="field-row">
           <div className="field">
-            <label>Имя</label>
-            <input autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+            <label htmlFor="clientsscreen-field-1">Имя</label>
+            <input id="clientsscreen-field-1" autoFocus value={name} onChange={(event) => setName(event.target.value)} />
           </div>
           <div className="field">
-            <label>Компания</label>
-            <input value={company} onChange={(event) => setCompany(event.target.value)} />
+            <label htmlFor="clientsscreen-field-2">Компания</label>
+            <input id="clientsscreen-field-2" value={company} onChange={(event) => setCompany(event.target.value)} />
           </div>
         </div>
         <div className="field">
-          <label>Заметки</label>
-          <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <label htmlFor="clientsscreen-field-3">Заметки</label>
+          <textarea id="clientsscreen-field-3" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
@@ -82,7 +82,7 @@ export default function ClientsScreen({ onOpenClient }: { onOpenClient: (id: str
         <div className="row">
           <span className="client-avatar">{client.name.slice(0, 1).toLocaleUpperCase('ru-RU')}</span>
           <div className="grow">
-            <b>{client.name}</b>
+            <button className="project-open" onClick={(event) => { event.stopPropagation(); onOpenClient(client.id); }}>{client.name}</button>
             {client.company && <div className="meta">{client.company}</div>}
           </div>
         </div>

@@ -1,43 +1,49 @@
-import { useEffect, useState } from 'react';
-import TimerBar from './components/TimerBar';
-import Icon, { type IconName } from './components/Icon';
-import { Dock } from './components/Dock';
-import UpdateBanner from './components/UpdateBanner';
-import SyncConflictBanner from './components/SyncConflictBanner';
-import TodayScreen from './screens/TodayScreen';
-import ProjectsScreen from './screens/ProjectsScreen';
-import ProjectDetailScreen from './screens/ProjectDetailScreen';
-import ReportsScreen from './screens/ReportsScreen';
-import SettingsScreen from './screens/SettingsScreen';
-import ClientsScreen from './screens/ClientsScreen';
-import ClientDetailScreen from './screens/ClientDetailScreen';
-import { useAppDispatch, useAppState } from './state';
+import { useEffect, useState } from "react";
+import TimerBar from "./components/TimerBar";
+import Icon, { type IconName } from "./components/Icon";
+import UpdateBanner from "./components/UpdateBanner";
+import SyncConflictBanner from "./components/SyncConflictBanner";
+import TodayScreen from "./screens/TodayScreen";
+import ProjectsScreen from "./screens/ProjectsScreen";
+import ProjectDetailScreen from "./screens/ProjectDetailScreen";
+import ReportsScreen from "./screens/ReportsScreen";
+import SettingsScreen from "./screens/SettingsScreen";
+import ClientsScreen from "./screens/ClientsScreen";
+import ClientDetailScreen from "./screens/ClientDetailScreen";
+import { useAppDispatch, useAppState } from "./state";
 
 export type Route =
-  | { name: 'today' }
-  | { name: 'projects' }
-  | { name: 'clients' }
-  | { name: 'client'; id: string }
-  | { name: 'project'; id: string; clientId?: string }
-  | { name: 'reports' }
-  | { name: 'settings' };
+  | { name: "today" }
+  | { name: "projects" }
+  | { name: "clients" }
+  | { name: "client"; id: string }
+  | { name: "project"; id: string; clientId?: string }
+  | { name: "reports" }
+  | { name: "settings" };
 
 const NAV: { route: Route; label: string; icon: IconName }[] = [
-  { route: { name: 'today' }, label: 'Таймер', icon: 'timer' },
-  { route: { name: 'projects' }, label: 'Проекты', icon: 'folder' },
-  { route: { name: 'clients' }, label: 'Клиенты', icon: 'users' },
-  { route: { name: 'reports' }, label: 'Отчёты', icon: 'chart' },
-  { route: { name: 'settings' }, label: 'Настройки', icon: 'sliders' },
+  { route: { name: "today" }, label: "Таймер", icon: "timer" },
+  { route: { name: "projects" }, label: "Проекты", icon: "folder" },
+  { route: { name: "clients" }, label: "Клиенты", icon: "users" },
+  { route: { name: "reports" }, label: "Отчёты", icon: "chart" },
+  { route: { name: "settings" }, label: "Настройки", icon: "sliders" },
 ];
 
 export default function App() {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const [route, setRoute] = useState<Route>({ name: 'today' });
+  const [route, setRoute] = useState<Route>({ name: "today" });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (
+        event.code !== "Space" ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      )
+        return;
+      if (event.repeat || document.querySelector("dialog[open]")) return;
       const target = event.target as HTMLElement | null;
       if (
         target?.isContentEditable ||
@@ -47,69 +53,165 @@ export default function App() {
       }
       if (state.timer) {
         event.preventDefault();
-        dispatch({ type: state.timer.running ? 'pauseTimer' : 'resumeTimer' });
+        dispatch({ type: state.timer.running ? "pauseTimer" : "resumeTimer" });
         return;
       }
       const lastEntry = [...state.entries].sort((a, b) => b.start - a.start)[0];
-      const task = lastEntry && state.tasks.find((item) => item.id === lastEntry.taskId);
-      const project = task && state.projects.find((item) => item.id === task.projectId);
-      if (task && project && !project.archived && project.status === 'active') {
+      const task =
+        lastEntry && state.tasks.find((item) => item.id === lastEntry.taskId);
+      const project =
+        task && state.projects.find((item) => item.id === task.projectId);
+      if (task && project && !project.archived && project.status === "active") {
         event.preventDefault();
-        dispatch({ type: 'startTimer', taskId: task.id, projectId: project.id });
+        dispatch({
+          type: "startTimer",
+          taskId: task.id,
+          projectId: project.id,
+        });
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [dispatch, state.entries, state.projects, state.tasks, state.timer]);
 
   const isActive = (r: Route) =>
     r.name === route.name ||
-    (r.name === 'projects' && route.name === 'project' && !route.clientId) ||
-    (r.name === 'clients' && (route.name === 'client' || (route.name === 'project' && Boolean(route.clientId))));
+    (r.name === "projects" && route.name === "project" && !route.clientId) ||
+    (r.name === "clients" &&
+      (route.name === "client" ||
+        (route.name === "project" && Boolean(route.clientId))));
 
   return (
     <div className="app">
       <UpdateBanner />
       <SyncConflictBanner />
-      <div className="main">
-        {route.name !== 'today' && <TimerBar onOpenToday={() => setRoute({ name: 'today' })} />}
+      <aside className="workspace-sidebar">
+        <div className="workspace-brand">
+          <Icon name="timer" size={22} />
+          <span>
+            Time Tracker<small>WORKSPACE</small>
+          </span>
+        </div>
+        <div className="sidebar-label">Рабочее пространство</div>
+        <nav className="workspace-nav" aria-label="Основная навигация">
+          {NAV.map((item) => (
+            <button
+              key={item.route.name}
+              aria-current={isActive(item.route) ? "page" : undefined}
+              className={
+                "workspace-nav-item" + (isActive(item.route) ? " active" : "")
+              }
+              onClick={() => setRoute(item.route)}
+            >
+              <Icon name={item.icon} size={18} strokeWidth={1.6} />
+              <span>{item.label}</span>
+              {item.route.name === "projects" && (
+                <small>
+                  {state.projects.filter((p) => !p.archived).length}
+                </small>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-projects">
+          <div className="sidebar-label">Активные проекты</div>
+          {state.projects
+            .filter((p) => !p.archived && p.status === "active")
+            .slice(0, 8)
+            .map((p) => (
+              <button
+                key={p.id}
+                className="sidebar-project"
+                onClick={() => setRoute({ name: "project", id: p.id })}
+              >
+                <span className="dot" style={{ background: p.color }} />
+                <span>{p.name}</span>
+              </button>
+            ))}
+          {!state.projects.some(
+            (p) => !p.archived && p.status === "active",
+          ) && <p className="hint">Здесь появятся ваши проекты</p>}
+        </div>
+        <div className="sidebar-footer">
+          <span className="local-dot" />
+          Локальное пространство
+        </div>
+      </aside>
+      <main className="main">
+        <header className="workspace-toolbar">
+          <div className="workspace-breadcrumb">
+            <span>Workspace</span>
+            <span>/</span>
+            <b>{NAV.find((item) => isActive(item.route))?.label}</b>
+          </div>
+          <span className="preview-badge">Дизайн · preview</span>
+          <button
+            className="btn btn-icon btn-ghost"
+            aria-label={
+              state.settings.theme === "dark"
+                ? "Включить светлую тему"
+                : "Включить тёмную тему"
+            }
+            onClick={() =>
+              dispatch({
+                type: "updateSettings",
+                settings: {
+                  theme: state.settings.theme === "dark" ? "light" : "dark",
+                },
+              })
+            }
+          >
+            <Icon
+              name={state.settings.theme === "dark" ? "sun" : "moon"}
+              size={16}
+            />
+          </button>
+        </header>
+        {route.name !== "today" && (
+          <TimerBar onOpenToday={() => setRoute({ name: "today" })} />
+        )}
         <div className="content">
-          {route.name === 'today' && <TodayScreen onOpenProject={(id) => setRoute({ name: 'project', id })} />}
-          {route.name === 'projects' && <ProjectsScreen onOpenProject={(id) => setRoute({ name: 'project', id })} />}
-          {route.name === 'clients' && (
-            <ClientsScreen onOpenClient={(id) => setRoute({ name: 'client', id })} />
-          )}
-          {route.name === 'client' && (
-            <ClientDetailScreen
-              clientId={route.id}
-              onBack={() => setRoute({ name: 'clients' })}
-              onOpenProject={(id) => setRoute({ name: 'project', id, clientId: route.id })}
+          {route.name === "today" && (
+            <TodayScreen
+              onOpenProject={(id) => setRoute({ name: "project", id })}
             />
           )}
-          {route.name === 'project' && (
-            <ProjectDetailScreen
-              projectId={route.id}
-              backTitle={route.clientId ? 'К клиенту' : 'К проектам'}
-              onBack={() =>
-                setRoute(route.clientId ? { name: 'client', id: route.clientId } : { name: 'projects' })
+          {route.name === "projects" && (
+            <ProjectsScreen
+              onOpenProject={(id) => setRoute({ name: "project", id })}
+            />
+          )}
+          {route.name === "clients" && (
+            <ClientsScreen
+              onOpenClient={(id) => setRoute({ name: "client", id })}
+            />
+          )}
+          {route.name === "client" && (
+            <ClientDetailScreen
+              clientId={route.id}
+              onBack={() => setRoute({ name: "clients" })}
+              onOpenProject={(id) =>
+                setRoute({ name: "project", id, clientId: route.id })
               }
             />
           )}
-          {route.name === 'reports' && <ReportsScreen />}
-          {route.name === 'settings' && <SettingsScreen />}
+          {route.name === "project" && (
+            <ProjectDetailScreen
+              projectId={route.id}
+              backTitle={route.clientId ? "К клиенту" : "К проектам"}
+              onBack={() =>
+                setRoute(
+                  route.clientId
+                    ? { name: "client", id: route.clientId }
+                    : { name: "projects" },
+                )
+              }
+            />
+          )}
+          {route.name === "reports" && <ReportsScreen />}
+          {route.name === "settings" && <SettingsScreen />}
         </div>
-      </div>
-
-      <div className="dock-wrap">
-        <Dock
-          items={NAV.map((item) => ({
-            icon: <Icon name={item.icon} size={20} strokeWidth={1.9} />,
-            label: item.label,
-            active: isActive(item.route),
-            onClick: () => setRoute(item.route),
-          }))}
-        />
-      </div>
+      </main>
     </div>
   );
 }

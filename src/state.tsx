@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useReducer, useRef, type ReactNod
 import type { AppState, Client, Project, Settings, Task, TimeEntry } from './types';
 import { loadState, parseState, saveState, setDesktopBaseRaw, uid } from './lib/storage';
 import { resolveCurrency, resolveRate } from './lib/money';
+import { timerElapsed } from './hooks';
 
 export type Action =
   | { type: 'addProject'; project: Project }
@@ -30,7 +31,7 @@ export type Action =
 export function entryFromTimer(state: AppState, now: number, note?: string): TimeEntry | null {
   const t = state.timer;
   if (!t) return null;
-  const durationMs = t.accumulatedMs + (t.running ? now - t.startedAt : 0);
+  const durationMs = timerElapsed(t, now);
   if (durationMs < 1000) return null; // случайные клики не сохраняем
   return {
     id: uid(),
@@ -122,7 +123,7 @@ export function reducer(state: AppState, action: Action): AppState {
       const now = Date.now();
       return {
         ...state,
-        timer: { ...t, running: false, accumulatedMs: t.accumulatedMs + (now - t.startedAt) },
+        timer: { ...t, running: false, accumulatedMs: timerElapsed(t, now) },
       };
     }
     case 'resumeTimer': {

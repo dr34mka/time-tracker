@@ -110,12 +110,12 @@ export default function ProjectForm({ initial, onClose }: Props) {
     <Modal title={initial ? 'Редактировать проект' : 'Новый проект'} onClose={onClose}>
       <form onSubmit={submit}>
         <div className="field">
-          <label>Название</label>
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Например: Сайт для Acme" />
+          <label htmlFor="projectform-field-1">Название</label>
+          <input id="projectform-field-1" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Например: Сайт для Acme" />
         </div>
         <div className="field">
           <label>Клиент</label>
-          <Select
+          <Select aria-label="Клиент"
             block
             value={clientId}
             onChange={setClientId}
@@ -179,7 +179,7 @@ export default function ProjectForm({ initial, onClose }: Props) {
         </div>
         <div className="field">
           <label>Статус</label>
-          <Select
+          <Select aria-label="Статус"
             block
             value={status}
             onChange={(v) => setStatus(v as ProjectStatus)}
@@ -212,7 +212,7 @@ export default function ProjectForm({ initial, onClose }: Props) {
                 />
               </div>
               <div className="field" style={{ marginBottom: 0 }}>
-                <Select
+                <Select aria-label="Валюта проекта"
                   block
                   value={currency}
                   onChange={(v) => setCurrency(v as Currency)}

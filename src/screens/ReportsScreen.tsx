@@ -344,7 +344,7 @@ export default function ReportsScreen() {
       </div>
 
       <div className="filters">
-        <Select
+        <Select aria-label="Период отчёта"
           value={period}
           onChange={(v) => setPeriod(v as Period)}
           options={(Object.keys(PERIOD_LABEL) as Period[]).map((p) => ({ value: p, label: PERIOD_LABEL[p] }))}
@@ -355,7 +355,7 @@ export default function ReportsScreen() {
             <DatePicker value={customTo} onChange={setCustomTo} />
           </>
         )}
-        <Select
+        <Select aria-label="Клиент в отчёте"
           value={clientFilter}
           onChange={(value) => {
             setClientFilter(value);
@@ -367,7 +367,7 @@ export default function ReportsScreen() {
             ...state.clients.map((client) => ({ value: client.id, label: client.name })),
           ]}
         />
-        <Select
+        <Select aria-label="Проект в отчёте"
           value={projectFilter}
           onChange={setProjectFilter}
           options={[

@@ -17,7 +17,8 @@
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
     "release:patch": "npm version patch -m \"Релиз v%s\"",
-    "release:minor": "npm version minor -m \"Релиз v%s\""
+    "release:minor": "npm version minor -m \"Релиз v%s\"",
+    "test:ui": "node scripts/ui-smoke.mjs"
   },
   "dependencies": {
     "motion": "^12.42.2",
@@ -30,6 +31,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
+    "playwright-core": "^1.63.0",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"

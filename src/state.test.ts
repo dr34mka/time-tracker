@@ -108,3 +108,30 @@ describe('state reducer', () => {
     expect(next.projects[0].client).toBe('Acme Group');
   });
 });
+
+describe('timer clock changes', () => {
+  it('keeps accumulated time if the system clock moves backwards before pause or stop', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    let state = reducer(stateWithProject(), { type: 'startTimer', taskId: 'task', projectId: 'project' });
+    vi.setSystemTime(110_000);
+    state = reducer(state, { type: 'pauseTimer' });
+    state = reducer(state, { type: 'resumeTimer' });
+    vi.setSystemTime(105_000);
+    expect(reducer(state, { type: 'pauseTimer' }).timer?.accumulatedMs).toBe(10_000);
+    expect(reducer(state, { type: 'stopTimer' }).entries[0].durationMs).toBe(10_000);
+  });
+  it('does not include paused time and drops accidental sub-second starts', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    let state = reducer(stateWithProject(), { type: 'startTimer', taskId: 'task', projectId: 'project' });
+    vi.setSystemTime(10_500);
+    expect(reducer(state, { type: 'stopTimer' }).entries).toHaveLength(0);
+    vi.setSystemTime(12_000);
+    state = reducer(state, { type: 'pauseTimer' });
+    vi.setSystemTime(30_000);
+    state = reducer(state, { type: 'resumeTimer' });
+    vi.setSystemTime(33_000);
+    expect(reducer(state, { type: 'stopTimer' }).entries[0].durationMs).toBe(5_000);
+  });
+});
