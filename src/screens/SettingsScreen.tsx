@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAppDispatch, useAppState } from '../state';
+import { useAppDispatch, useAppState, useSyncControls } from '../state';
 import { parseState } from '../lib/storage';
-import { dayKey } from '../lib/time';
+import { downloadBackup } from '../lib/backup';
+import { DESIGN_PREVIEW } from '../lib/runtime';
 import {
   CURRENCIES,
   CURRENCY_LABELS,
@@ -12,18 +13,17 @@ import {
 } from '../types';
 import Icon from '../components/Icon';
 import Select from '../components/Select';
-import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function SettingsScreen() {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const s = state.settings;
-  const desktop = window.desktop;
+  const sync = useSyncControls();
+  const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
 
   const [dataDir, setDataDir] = useState<string | null>(null);
   const [pendingRestore, setPendingRestore] = useState<AppState | null>(null);
-  const [foundInFolder, setFoundInFolder] = useState<AppState | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -32,16 +32,6 @@ export default function SettingsScreen() {
     desktop?.appVersion().then(setAppVersion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const downloadBackup = () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `time-tracker-backup_${dayKey(Date.now())}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const pickBackup = async (file: File | undefined) => {
     if (!file) return;
@@ -56,20 +46,8 @@ export default function SettingsScreen() {
   };
 
   const chooseSyncDir = async () => {
-    if (!desktop) return;
-    const res = await desktop.chooseDataDir();
-    if (!res) return;
-    setDataDir(res.path);
-    if (res.hasFile && res.data) {
-      const parsed = parseState(res.data);
-      if (parsed) {
-        // в папке уже есть файл данных (например, с другого компьютера)
-        setFoundInFolder(parsed);
-        return;
-      }
-    }
-    // файла нет — кладём туда текущие данные
-    desktop.saveData(JSON.stringify(state));
+    const path = await sync.chooseDirectory();
+    if (path) setDataDir(path);
   };
 
   return (
@@ -82,8 +60,8 @@ export default function SettingsScreen() {
         <h2 style={{ marginBottom: 16 }}>Ставка и биллинг</h2>
         <div className="field-row">
           <div className="field">
-            <label>Глобальная ставка (в час)</label>
-            <input
+            <label htmlFor="settingsscreen-field-1">Глобальная ставка (в час)</label>
+            <input id="settingsscreen-field-1"
               type="number"
               min="0"
               step="0.5"
@@ -94,7 +72,7 @@ export default function SettingsScreen() {
           </div>
           <div className="field">
             <label>Валюта по умолчанию</label>
-            <Select
+            <Select aria-label="Валюта по умолчанию"
               block
               value={s.currency}
               onChange={(v) => dispatch({ type: 'updateSettings', settings: { currency: v as Currency } })}
@@ -107,8 +85,8 @@ export default function SettingsScreen() {
         </div>
         <div className="field-row">
           <div className="field">
-            <label>Цель дня (часов)</label>
-            <input
+            <label htmlFor="settingsscreen-field-2">Цель дня (часов)</label>
+            <input id="settingsscreen-field-2"
               type="number"
               min="1"
               max="16"
@@ -127,7 +105,7 @@ export default function SettingsScreen() {
         </div>
         <div className="field">
           <label>Минимальный интервал биллинга</label>
-          <Select
+          <Select aria-label="Минимальный интервал биллинга"
             block
             value={String(s.roundingMinutes)}
             onChange={(v) => dispatch({ type: 'updateSettings', settings: { roundingMinutes: Number(v) } })}
@@ -164,7 +142,7 @@ export default function SettingsScreen() {
         <div className="field">
           <label>Бэкап</label>
           <div className="row" style={{ flexWrap: 'wrap' }}>
-            <button className="btn" onClick={downloadBackup}>
+            <button className="btn" onClick={() => downloadBackup(state)}>
               <Icon name="download" size={15} /> Скачать бэкап
             </button>
             <button className="btn" onClick={() => fileRef.current?.click()}>
@@ -221,35 +199,7 @@ export default function SettingsScreen() {
         />
       )}
 
-      {foundInFolder && (
-        <Modal title="В папке уже есть данные" onClose={() => setFoundInFolder(null)}>
-          <p className="hint" style={{ margin: '0 0 8px', fontSize: 13 }}>
-            В выбранной папке найден файл Time Tracker (проектов — {foundInFolder.projects.length},
-            записей — {foundInFolder.entries.length}). Скорее всего, он с другого вашего компьютера.
-          </p>
-          <div className="modal-actions">
-            <button
-              className="btn"
-              onClick={() => {
-                // оставить мои данные: перезаписываем файл текущим состоянием
-                window.desktop?.saveData(JSON.stringify(state));
-                setFoundInFolder(null);
-              }}
-            >
-              Оставить мои
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                dispatch({ type: 'resetAll', state: foundInFolder });
-                setFoundInFolder(null);
-              }}
-            >
-              Загрузить из папки
-            </button>
-          </div>
-        </Modal>
-      )}
+
     </>
   );
 }

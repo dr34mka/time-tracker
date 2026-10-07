@@ -32,8 +32,8 @@ export default function TaskNameModal({ task, onClose, timerDate = false }: Prop
       <form onSubmit={save}>
         <div className={timerDate ? 'field-row' : undefined}>
           <div className="field" style={timerDate ? { flex: 2 } : undefined}>
-            <label>Название задачи</label>
-            <input
+            <label htmlFor="tasknamemodal-field-1">Название задачи</label>
+            <input id="tasknamemodal-field-1"
               autoFocus
               value={title}
               onChange={(event) => setTitle(event.target.value)}

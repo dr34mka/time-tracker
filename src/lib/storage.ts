@@ -11,7 +11,8 @@ import type {
   TimeEntry,
 } from '../types';
 
-const KEY = 'time-tracker-v1';
+import { DESIGN_PREVIEW, STORAGE_KEY } from './runtime';
+const KEY = STORAGE_KEY;
 /** Прежний ключ (до переименования пакета) — читаем один раз для миграции */
 const LEGACY_KEY = 'time-tracker-pro-v1';
 
@@ -133,7 +134,7 @@ function parseTask(value: unknown, projectIds: Set<string>): Task | null {
   };
 }
 
-function parseEntry(value: unknown, projectIds: Set<string>, taskIds: Set<string>): TimeEntry | null {
+function parseEntry(value: unknown, projectIds: Set<string>, taskProjects: Map<string, string>): TimeEntry | null {
   if (!isRecord(value)) return null;
   const id = stringValue(value.id).trim();
   const projectId = stringValue(value.projectId).trim();
@@ -143,7 +144,7 @@ function parseEntry(value: unknown, projectIds: Set<string>, taskIds: Set<string
   if (
     !id ||
     !projectIds.has(projectId) ||
-    !taskIds.has(taskId) ||
+    taskProjects.get(taskId) !== projectId ||
     !Number.isFinite(start) ||
     !Number.isFinite(durationMs) ||
     durationMs <= 0
@@ -162,11 +163,11 @@ function parseEntry(value: unknown, projectIds: Set<string>, taskIds: Set<string
   };
 }
 
-function parseTimer(value: unknown, projectIds: Set<string>, taskIds: Set<string>): ActiveTimer | null {
+function parseTimer(value: unknown, projectIds: Set<string>, taskProjects: Map<string, string>): ActiveTimer | null {
   if (!isRecord(value)) return null;
   const projectId = stringValue(value.projectId).trim();
   const taskId = stringValue(value.taskId).trim();
-  if (!projectIds.has(projectId) || !taskIds.has(taskId)) return null;
+  if (!projectIds.has(projectId) || taskProjects.get(taskId) !== projectId) return null;
   const startedAt = finiteNumber(value.startedAt, NaN);
   const firstStartedAt = finiteNumber(value.firstStartedAt, startedAt);
   const accumulatedMs = Math.max(0, finiteNumber(value.accumulatedMs, 0));
@@ -224,9 +225,9 @@ export function parseState(raw: string): AppState | null {
     const tasks = (Array.isArray(parsed.tasks) ? parsed.tasks : [])
       .map((task) => parseTask(task, projectIds))
       .filter((task): task is Task => task !== null);
-    const taskIds = new Set(tasks.map((task) => task.id));
+    const taskProjects = new Map(tasks.map((task) => [task.id, task.projectId]));
     const entries = (Array.isArray(parsed.entries) ? parsed.entries : [])
-      .map((entry) => parseEntry(entry, projectIds, taskIds))
+      .map((entry) => parseEntry(entry, projectIds, taskProjects))
       .filter((entry): entry is TimeEntry => entry !== null);
 
     return {
@@ -236,7 +237,7 @@ export function parseState(raw: string): AppState | null {
       projects,
       tasks,
       entries,
-      timer: parseTimer(parsed.timer, projectIds, taskIds),
+      timer: parseTimer(parsed.timer, projectIds, taskProjects),
     };
   } catch {
     return null;
@@ -244,40 +245,108 @@ export function parseState(raw: string): AppState | null {
 }
 
 export function loadState(): AppState {
-  const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
-  if (!raw) return DEFAULT_STATE;
-  return parseState(raw) ?? DEFAULT_STATE;
+  try {
+    const raw = localStorage.getItem(KEY) ?? (DESIGN_PREVIEW ? null : localStorage.getItem(LEGACY_KEY));
+    return raw ? parseState(raw) ?? DEFAULT_STATE : DEFAULT_STATE;
+  } catch {
+    return DEFAULT_STATE;
+  }
+}
+
+export interface PersistenceStatus {
+  localError: boolean;
+  desktopError: boolean;
+  pending: boolean;
+}
+let status: PersistenceStatus = { localError: false, desktopError: false, pending: false };
+const listeners = new Set<() => void>();
+export const getPersistenceStatus = () => status;
+export function subscribePersistence(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+function publish(patch: Partial<PersistenceStatus>) {
+  status = { ...status, ...patch };
+  listeners.forEach((listener) => listener());
 }
 
 let desktopSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let desktopBaseRaw: string | null | undefined;
+let pendingRaw: string | null = null;
+let saving = false;
+let paused = false;
+let epoch = 0;
 
+/** Cancel queued writes before loading or resolving an external snapshot. */
+export function pauseDesktopSaves(): void {
+  paused = true;
+  epoch++;
+  pendingRaw = null;
+  if (desktopSaveTimer) clearTimeout(desktopSaveTimer);
+  desktopSaveTimer = null;
+  publish({ pending: false });
+}
+export function resumeDesktopSaves(): void { paused = false; }
 export function setDesktopBaseRaw(raw: string | null): void {
+  pauseDesktopSaves();
   desktopBaseRaw = raw;
-  if (desktopSaveTimer) {
-    clearTimeout(desktopSaveTimer);
-    desktopSaveTimer = null;
+  paused = false;
+  publish({ desktopError: false });
+}
+export function desktopLoadFailed(): void {
+  pauseDesktopSaves();
+  publish({ desktopError: true });
+}
+export function hasLocalDesktopChanges(state: AppState): boolean {
+  return desktopBaseRaw === undefined || desktopBaseRaw === null ||
+    JSON.stringify(state) !== JSON.stringify(parseState(desktopBaseRaw));
+}
+
+async function writePending(): Promise<void> {
+  desktopSaveTimer = null;
+  const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
+  if (!desktop || saving || paused || desktopBaseRaw === undefined || !pendingRaw) return;
+  const raw = pendingRaw;
+  pendingRaw = null;
+  const expectedRaw = desktopBaseRaw;
+  const writeEpoch = epoch;
+  saving = true;
+  let saved = false;
+  try {
+    saved = await desktop.saveData(raw, expectedRaw);
+  } catch {
+    // IPC rejection is a visible save failure, not an unhandled promise.
+  } finally {
+    saving = false;
   }
+  if (writeEpoch === epoch) {
+    if (saved) desktopBaseRaw = raw;
+    publish({ desktopError: !saved, pending: Boolean(pendingRaw) });
+    // A failed write needs an explicit retry or conflict decision.
+    if (!saved) {
+      pendingRaw = null;
+      publish({ pending: false });
+      return;
+    }
+  }
+  // Serialize IPC calls so the next write uses the acknowledged file version.
+  if (pendingRaw && !paused) void writePending();
 }
 
 export function saveState(state: AppState): void {
   const raw = JSON.stringify(state);
+  let localError = false;
   try {
     localStorage.setItem(KEY, raw);
   } catch {
-    // квота/приватный режим — молча пропускаем, данные останутся в памяти
+    localError = true;
   }
-  // в десктопе пишем ещё и в файл данных (с дебаунсом — файл может лежать в облачной папке)
-  const desktop = window.desktop;
-  if (desktop) {
+  publish({ localError });
+  if (!DESIGN_PREVIEW && window.desktop && !paused) {
+    pendingRaw = raw;
+    publish({ pending: true });
     if (desktopSaveTimer) clearTimeout(desktopSaveTimer);
-    const expectedRaw = desktopBaseRaw;
-    desktopSaveTimer = setTimeout(() => {
-      desktopSaveTimer = null;
-      desktop.saveData(raw, expectedRaw).then((saved) => {
-        if (saved && desktopBaseRaw === expectedRaw) desktopBaseRaw = raw;
-      });
-    }, 400);
+    desktopSaveTimer = setTimeout(() => { void writePending(); }, 400);
   }
 }
 

@@ -126,3 +126,20 @@ describe('parseState', () => {
     expect(saveData).toHaveBeenCalledWith(JSON.stringify(DEFAULT_STATE), 'base-version');
   });
 });
+
+it('rejects entries and timers that attach a task to a different existing project', () => {
+  const projects = ['p1', 'p2'].map(id => ({ id, name: id, client: '', color: '#fff' }));
+  const raw = {
+    settings: {}, projects,
+    tasks: [{ id: 't1', projectId: 'p1', title: 'Design' }],
+    entries: [
+      { id: 'valid', taskId: 't1', projectId: 'p1', start: 1, durationMs: 1000 },
+      { id: 'wrong', taskId: 't1', projectId: 'p2', start: 1, durationMs: 1000 },
+    ],
+    timer: { taskId: 't1', projectId: 'p2', startedAt: 1, running: true },
+  };
+  const parsed = parseState(JSON.stringify(raw));
+  expect(parsed?.entries.map(entry => entry.id)).toEqual(['valid']);
+  expect(parsed?.timer).toBeNull();
+  expect(parseState(JSON.stringify({ ...raw, timer: { ...raw.timer, projectId: 'p1' } }))?.timer?.running).toBe(true);
+});

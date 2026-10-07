@@ -9,7 +9,9 @@ function subscribe(channel, cb) {
 // Мост между рендерером и главным процессом
 contextBridge.exposeInMainWorld('desktop', {
   // файловое хранилище
+  // Preserve load rejections: only a missing file is represented as null.
   loadData: () => ipcRenderer.invoke('data:load'),
+  // expectedRaw=null is an absent-file precondition, not an overwrite request.
   saveData: (raw, expectedRaw) => ipcRenderer.invoke('data:save', raw, expectedRaw),
   getInfo: () => ipcRenderer.invoke('data:info'),
   openDataDir: () => ipcRenderer.invoke('data:open-dir'),

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useSpring, useTransform } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from 'motion/react';
 
 /* Адаптация AnimateDigits (ui.unlumen.com/components/animate-digits):
    Tailwind-классы заменены на классы из styles.css, cn() — на join */
@@ -145,6 +145,7 @@ function AnimateDigits({
   enterScale,
   animationDelay = 80,
 }: AnimateDigitsProps) {
+  const reduceMotion = useReducedMotion();
   // displayedValue — то, что реально рендерится; продвигается по шагу за раз
   const [displayedValue, setDisplayedValue] = useState(value);
 
@@ -185,6 +186,8 @@ function AnimateDigits({
   }, []);
 
   const chars = displayedValue.split('');
+
+  if (reduceMotion) return <div className={cn('animate-digits', className)}>{value}</div>;
 
   return (
     <div className={cn('animate-digits', className)} style={{ gap }}>

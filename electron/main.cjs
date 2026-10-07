@@ -72,8 +72,9 @@ function readDataFile() {
     const raw = fs.readFileSync(dataFilePath(), 'utf8');
     JSON.parse(raw);
     return raw;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
   }
 }
 
@@ -106,7 +107,8 @@ function notifyConflict(win, attemptedRaw) {
 }
 
 function readExternalChange(win, attempt = 0) {
-  const raw = readDataFile();
+  let raw = null;
+  try { raw = readDataFile(); } catch {}
   if (!raw) {
     if (attempt < 3) {
       watcherTimer = setTimeout(() => readExternalChange(win, attempt + 1), 500 * (attempt + 1));
@@ -152,11 +154,12 @@ function registerIpc(getWin) {
       fs.mkdirSync(getDataDir(), { recursive: true });
       const currentRaw = readDataFile();
       if (currentRaw === raw) {
+        pendingConflict = null;
         lastKnownRaw = raw;
         return true;
       }
       const baseRaw = expectedRaw === undefined ? lastKnownRaw : expectedRaw;
-      if (currentRaw && baseRaw !== null && currentRaw !== baseRaw) {
+      if (currentRaw && currentRaw !== baseRaw) {
         if (!pendingConflict) notifyConflict(getWin(), raw);
         lastWritten = null;
         lastKnownRaw = currentRaw;
@@ -166,6 +169,7 @@ function registerIpc(getWin) {
         atomicWrite(path.join(getDataDir(), DATA_BACKUP_FILE_NAME), currentRaw);
       }
       atomicWrite(dataFilePath(), raw);
+      pendingConflict = null;
       lastKnownRaw = raw;
       return true;
     } catch {
@@ -211,13 +215,10 @@ function registerIpc(getWin) {
     const cfg = readConfig();
     cfg.dataDir = res.filePaths[0];
     writeConfig(cfg);
-    let data = null;
-    try {
-      data = readDataFile();
-    } catch {}
+    watchDataDir(win);
+    const data = readDataFile();
     lastKnownRaw = data;
     lastWritten = null;
-    watchDataDir(win);
     return { path: res.filePaths[0], hasFile: data != null, data };
   });
 
@@ -552,8 +553,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1160,
     height: 800,
-    minWidth: 380,
-    minHeight: 600,
+    minWidth: 960,
+    minHeight: 640,
     autoHideMenuBar: true,
     backgroundColor: '#0a0a0b',
     webPreferences: {

@@ -71,7 +71,7 @@ function EntryModal({
       <form onSubmit={submit}>
         <div className="field">
           <label>Задача</label>
-          <Select
+          <Select aria-label="Задача"
             block
             value={taskId}
             onChange={setTaskId}
@@ -85,22 +85,22 @@ function EntryModal({
           </div>
           <div className="field">
             <label>Начало</label>
-            <Select block value={startTime} onChange={setStartTime} options={TIME_OPTIONS} />
+            <Select aria-label="Начало" block value={startTime} onChange={setStartTime} options={TIME_OPTIONS} />
           </div>
         </div>
         <div className="field-row">
           <div className="field">
-            <label>Часы</label>
-            <input type="number" min="0" max="24" value={hours} onChange={(e) => setHours(e.target.value)} />
+            <label htmlFor="projectdetailscreen-field-1">Часы</label>
+            <input id="projectdetailscreen-field-1" type="number" min="0" max="24" value={hours} onChange={(e) => setHours(e.target.value)} />
           </div>
           <div className="field">
-            <label>Минуты</label>
-            <input type="number" min="0" max="59" step="5" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+            <label htmlFor="projectdetailscreen-field-2">Минуты</label>
+            <input id="projectdetailscreen-field-2" type="number" min="0" max="59" step="5" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
           </div>
         </div>
         <div className="field">
-          <label>Заметка</label>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Что было сделано" />
+          <label htmlFor="projectdetailscreen-field-3">Заметка</label>
+          <input id="projectdetailscreen-field-3" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Что было сделано" />
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>

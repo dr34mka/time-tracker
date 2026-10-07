@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icon from './Icon';
+import { DESIGN_PREVIEW } from '../lib/runtime';
 import type { UpdateInfo } from '../desktop.d';
 
 /** Плавающий баннер «Доступна новая версия» (только в десктопе, при наличии
@@ -10,7 +11,7 @@ export default function UpdateBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const d = window.desktop;
+    const d = DESIGN_PREVIEW ? undefined : window.desktop;
     if (!d?.getUpdate) return;
     d.getUpdate().then((u) => u && setInfo(u));
     return d.onUpdateAvailable?.((u) => {

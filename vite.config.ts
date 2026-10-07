@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
+  define: { __DESIGN_PREVIEW__: false },
   // относительные пути к ассетам — нужно для загрузки через file:// в Electron
   base: './',
   server: { port: 5173 },

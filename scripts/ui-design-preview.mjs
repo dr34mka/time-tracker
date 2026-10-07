@@ -1,0 +1,66 @@
+import { chromium } from 'playwright-core';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+const html = await readFile(new URL('../dist-design-preview/time-tracker-design-preview.html', import.meta.url));
+const server = createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html);});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const previewUrl = `http://127.0.0.1:${server.address().port}/`;
+const browser = await chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {channel:'chrome'}), args:process.env.CI ? ['--no-sandbox'] : []});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+ page.setDefaultTimeout(8000);
+ const errors=[]; const requests=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
+ page.on('request',r=>{if(/^https?:/.test(r.url()) && r.url() !== previewUrl) requests.push(r.url());});
+ await page.addInitScript(()=>{
+   localStorage.setItem('time-tracker-v1','DO-NOT-CHANGE');
+   localStorage.setItem('time-tracker-pro-v1','DO-NOT-CHANGE-LEGACY');
+   localStorage.setItem('time-tracker-sidebar-open','false');
+   window.desktop = new Proxy({}, { get() { throw new Error('Preview accessed native bridge'); } });
+ });
+ await page.goto(previewUrl);
+ await page.getByText('Демо · тестовые данные').waitFor();
+ await page.evaluate(()=>document.fonts.ready);
+ if(process.env.DESIGN_PREVIEW_SCREENSHOT) await page.screenshot({path:process.env.DESIGN_PREVIEW_SCREENSHOT,fullPage:true});
+ const demo=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('time-tracker-design-preview-v1')));
+ assert.equal((await demo()).projects.length,3);
+ await page.getByRole('button',{name:'Старт',exact:true}).click();
+ assert((await demo()).timer.running);
+ await page.getByRole('button',{name:'Пауза',exact:true}).click();
+ assert.equal((await demo()).timer.running,false);
+ await page.reload();
+ await page.getByRole('button',{name:'Продолжить',exact:true}).waitFor();
+ await page.context().setOffline(true);
+ await page.getByRole('button',{name:'Закрыть боковую панель',exact:true}).click();
+ assert.equal(await page.getByRole('navigation').count(),0);
+ await page.getByRole('button',{name:'Открыть боковую панель'}).click();
+ const nav=name=>page.getByRole('navigation').getByRole('button',{name:new RegExp('^'+name+'(?:\\s|$)')});
+ for(const name of ['Проекты','Клиенты','Отчёты','Настройки','Таймер']){
+   await nav(name).click();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ }
+ await nav('Отчёты').click();
+ const downloadEvent = page.waitForEvent('download');
+ await page.getByRole('button',{name:'CSV',exact:true}).click();
+ const csvDownload = await downloadEvent;
+ assert((await readFile(await csvDownload.path(),'utf8')).includes('North Studio'));
+ await csvDownload.delete();
+ await page.getByRole('button',{name:'Скачать PDF',exact:true}).click();
+ await page.waitForTimeout(250);
+ await nav('Таймер').click();
+ await page.getByRole('button',{name:'Сбросить пример',exact:true}).click();
+ await page.getByRole('dialog').getByRole('button',{name:'Отмена',exact:true}).click();
+ assert((await demo()).timer);
+ await page.getByRole('button',{name:'Сбросить пример',exact:true}).click();
+ await page.getByRole('dialog').getByRole('button',{name:'Сбросить пример',exact:true}).click();
+ assert.equal((await demo()).timer,null);
+ await page.getByRole('button',{name:'Включить светлую тему'}).click();
+ assert.equal((await demo()).settings.theme,'light');
+ await page.setViewportSize({width:960,height:740});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ assert.deepEqual(await page.evaluate(()=>[localStorage.getItem('time-tracker-v1'),localStorage.getItem('time-tracker-pro-v1'),localStorage.getItem('time-tracker-sidebar-open')]),['DO-NOT-CHANGE','DO-NOT-CHANGE-LEGACY','false']);
+ assert.deepEqual(requests,[]); assert.deepEqual(errors,[]);
+ console.log('Standalone HTML passed: offline, demo data, timer/pause/reload, navigation, sidebar, reset confirmation, light theme and production storage isolation.');
+} finally {await browser.close(); server.close();}
