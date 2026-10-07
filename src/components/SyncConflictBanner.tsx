@@ -1,45 +1,39 @@
-import { useEffect, useState } from 'react';
-import type { DataConflictInfo } from '../desktop';
-import Icon from './Icon';
+import { useSyncExternalStore } from 'react';
+import { useAppState, useSyncControls } from '../state';
+import { getPersistenceStatus, subscribePersistence } from '../lib/storage';
+import { downloadBackup } from '../lib/backup';
 
 export default function SyncConflictBanner() {
-  const [info, setInfo] = useState<DataConflictInfo | null>(null);
-  const [resolving, setResolving] = useState(false);
-
-  useEffect(() => window.desktop?.onDataConflict(setInfo), []);
-
-  if (!info) return null;
-
-  const resolve = async (choice: 'external' | 'local') => {
-    setResolving(true);
-    await window.desktop?.resolveDataConflict(choice);
-    setInfo(null);
-    setResolving(false);
-  };
-
+  const state = useAppState();
+  const sync = useSyncControls();
+  const status = useSyncExternalStore(subscribePersistence, getPersistenceStatus);
+  if (sync.conflict) {
+    return (
+      <section className="persistence-notice" role="alert" aria-label="Конфликт синхронизации">
+        <div>
+          <strong>В файле другая версия данных</strong>
+          <p>Текущая работа и таймер сохранены в окне. Выберите версию для продолжения. Перед заменой другая версия скачается как JSON-копия.</p>
+        </div>
+        <div className="persistence-actions">
+          <button className="btn" onClick={() => sync.resolve('local')}>Скачать файл и оставить мои</button>
+          <button className="btn" onClick={() => sync.resolve('external')}>Скачать мою копию и загрузить файл</button>
+        </div>
+      </section>
+    );
+  }
+  if (!status.localError && !status.desktopError) return null;
   return (
-    <div className="update-banner sync-conflict-banner" role="status">
-      <span className="update-banner-badge">
-        <Icon name="archive" size={15} strokeWidth={2} />
-      </span>
-      <span className="update-banner-text">
-        Обнаружены параллельные изменения. Локальная версия сохранена отдельно.
-      </span>
-      <div className="sync-conflict-actions">
-        <button
-          className="update-banner-btn secondary"
-          disabled={resolving}
-          onClick={() => resolve('external')}
-        >
-          Загрузить из файла
-        </button>
-        <button className="update-banner-btn" disabled={resolving} onClick={() => resolve('local')}>
-          Оставить мои
-        </button>
+    <section className="persistence-notice" role="alert" aria-label="Ошибка сохранения">
+      <div>
+        <strong>Не удалось сохранить данные</strong>
+        <p>{status.localError ? 'Локальное хранилище недоступно или заполнено. ' : ''}
+          {status.desktopError ? 'Не удалось прочитать или записать файл данных. ' : ''}
+          Текущая работа остаётся в окне. Скачайте копию перед закрытием приложения.</p>
       </div>
-      <button className="update-banner-x" onClick={() => setInfo(null)} aria-label="Скрыть">
-        <Icon name="x" size={14} strokeWidth={2} />
-      </button>
-    </div>
+      <div className="persistence-actions">
+        <button className="btn" onClick={sync.retry}>Повторить сохранение</button>
+        <button className="btn btn-primary" onClick={() => downloadBackup(state)}>Скачать копию JSON</button>
+      </div>
+    </section>
   );
 }

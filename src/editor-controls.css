@@ -381,3 +381,14 @@ input[type='checkbox']:checked {
   font-variant-numeric: tabular-nums;
   color: var(--control-ink);
 }
+
+.persistence-notice {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid var(--warn);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+}
+.persistence-notice strong { color: var(--warn); }
+.persistence-notice p { margin: 8px 0 12px; color: var(--ink-2); line-height: 1.5; }
+.persistence-actions { display: flex; flex-wrap: wrap; gap: 8px; }

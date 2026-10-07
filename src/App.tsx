@@ -105,7 +105,6 @@ export default function App() {
   return (
     <div className={'app' + (sidebarOpen ? ' sidebar-expanded' : '')}>
       <UpdateBanner />
-      <SyncConflictBanner />
       <WorkspaceSidebar
         open={sidebarOpen}
         onClose={closeSidebar}
@@ -173,6 +172,7 @@ export default function App() {
           <TimerBar onOpenToday={() => setRoute({ name: 'today' })} />
         )}
         <div className="content">
+          <SyncConflictBanner />
           {route.name === 'today' && (
             <TodayScreen
               onOpenProject={(id) => setRoute({ name: 'project', id })}

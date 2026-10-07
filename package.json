@@ -18,7 +18,8 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "release:patch": "npm version patch -m \"Релиз v%s\"",
     "release:minor": "npm version minor -m \"Релиз v%s\"",
-    "test:ui": "node scripts/ui-smoke.mjs"
+    "test:ui": "node scripts/ui-smoke.mjs",
+    "test:ui:persistence": "node scripts/ui-persistence.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

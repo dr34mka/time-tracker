@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useReducer, useRef, type ReactNode, type Dispatch } from 'react';
+import { createContext, useContext, useEffect, useReducer, useRef, useState, type ReactNode, type Dispatch } from 'react';
 import type { AppState, Client, Project, Settings, Task, TimeEntry } from './types';
-import { loadState, parseState, saveState, setDesktopBaseRaw, uid } from './lib/storage';
+import { DEFAULT_STATE, loadState, parseState, saveState, setDesktopBaseRaw, pauseDesktopSaves, resumeDesktopSaves, desktopLoadFailed, hasLocalDesktopChanges, uid } from './lib/storage';
 import { resolveCurrency, resolveRate } from './lib/money';
 import { timerElapsed } from './hooks';
+import { needsSyncDecision } from './lib/sync';
+import { downloadBackup } from './lib/backup';
 
 export type Action =
   | { type: 'addProject'; project: Project }
@@ -165,54 +167,147 @@ export function reducer(state: AppState, action: Action): AppState {
 const StateContext = createContext<AppState | null>(null);
 const DispatchContext = createContext<Dispatch<Action> | null>(null);
 
+interface SyncControls {
+  conflict: boolean;
+  retry: () => void;
+  resolve: (choice: 'external' | 'local') => void;
+  chooseDirectory: () => Promise<string | null>;
+}
+const SyncContext = createContext<SyncControls | null>(null);
+export function useSyncControls() {
+  return useContext(SyncContext)!;
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const [conflictRaw, setConflictRaw] = useState<string | null>(null);
+  const conflictRef = useRef<string | null>(null);
+  const retryRef = useRef(() => saveState(stateRef.current));
+  const acceptRef = useRef<(raw: string) => void>(() => {});
+  const chooseDirectoryRef = useRef<() => Promise<string | null>>(async () => null);
 
-  // персистентность: каждое изменение — в localStorage (и в файл данных в десктопе)
-  useEffect(() => {
-    saveState(state);
-  }, [state]);
-
-  // десктоп: при старте подхватываем файл данных, дальше слушаем внешние
-  // изменения файла (синхронизация через облачную папку с другого компьютера)
   useEffect(() => {
     const desktop = window.desktop;
     if (!desktop) return;
+    let cancelled = false;
+    let externalRevision = 0;
+    let loaded = false;
+    let choosingDirectory = false;
+    pauseDesktopSaves();
 
-    const applyExternal = (raw: string) => {
+    const accept = (raw: string) => {
       const incoming = parseState(raw);
-      if (!incoming) return;
+      if (!incoming) { desktopLoadFailed(); return; }
+      conflictRef.current = null;
+      setConflictRaw(null);
       setDesktopBaseRaw(raw);
+      stateRef.current = incoming;
+      dispatch({ type: 'resetAll', state: incoming });
+    };
+    acceptRef.current = accept;
+    const receive = (raw: string, startup = false, forceDecision = false) => {
+      if (cancelled) return;
+      const incoming = parseState(raw);
+      if (!incoming) { loaded = false; desktopLoadFailed(); return; }
       const current = stateRef.current;
-      // не теряем таймер, запущенный на этой машине
-      const next = !incoming.timer && current.timer ? { ...incoming, timer: current.timer } : incoming;
-      if (JSON.stringify(next) !== JSON.stringify(current)) {
-        dispatch({ type: 'resetAll', state: next });
+      // On startup a differing local cache may contain a write interrupted at exit.
+      const dirty = startup
+        ? JSON.stringify(current) !== JSON.stringify(DEFAULT_STATE)
+        : hasLocalDesktopChanges(current);
+      if (forceDecision || conflictRef.current || needsSyncDecision(current, incoming, dirty)) {
+        pauseDesktopSaves();
+        conflictRef.current = raw;
+        setConflictRaw(raw);
+      } else {
+        accept(raw);
       }
     };
-
-    let cancelled = false;
-    desktop.loadData().then((raw) => {
-      if (cancelled) return;
-      if (raw) {
-        applyExternal(raw);
-      } else {
-        // файла ещё нет — экспортируем текущее состояние (миграция с localStorage)
-        setDesktopBaseRaw(null);
-        const currentRaw = JSON.stringify(stateRef.current);
-        desktop.saveData(currentRaw, null).then((saved) => {
-          if (saved) setDesktopBaseRaw(currentRaw);
-        });
+    const load = async (forceDecision = false) => {
+      const revision = ++externalRevision;
+      try {
+        const raw = await desktop.loadData();
+        if (cancelled || revision !== externalRevision) return;
+        if (raw !== null && !parseState(raw)) throw new Error('Invalid data file');
+        if (raw !== null) receive(raw, !loaded, forceDecision);
+        else {
+          setDesktopBaseRaw(null);
+          saveState(stateRef.current);
+        }
+        loaded = true;
+      } catch {
+        if (!cancelled && revision === externalRevision) { loaded = false; desktopLoadFailed(); }
       }
+    };
+    retryRef.current = () => {
+      if (!loaded) void load();
+      else saveState(stateRef.current);
+    };
+    const unsubscribe = desktop.onExternalChange((raw) => {
+      externalRevision++;
+      if (choosingDirectory) return;
+      receive(raw, !loaded);
+      loaded = Boolean(parseState(raw));
     });
-    const unsubscribe = desktop.onExternalChange(applyExternal);
+    chooseDirectoryRef.current = async () => {
+      if (choosingDirectory) return null;
+      choosingDirectory = true;
+      externalRevision++;
+      pauseDesktopSaves();
+      try {
+        const result = await desktop.chooseDataDir();
+        if (cancelled) return null;
+        choosingDirectory = false;
+        if (!result) {
+          if (!conflictRef.current && loaded) { resumeDesktopSaves(); saveState(stateRef.current); }
+          else void load(Boolean(conflictRef.current));
+          return null;
+        }
+        externalRevision++;
+        if (result.data) receive(result.data, false, true);
+        else {
+          conflictRef.current = null;
+          setConflictRaw(null);
+          setDesktopBaseRaw(null);
+          saveState(stateRef.current);
+        }
+        return result.path;
+      } catch {
+        choosingDirectory = false;
+        loaded = false;
+        desktopLoadFailed();
+        return null;
+      }
+    };
+    const unsubscribeConflict = desktop.onDataConflict(() => { void load(true); });
+    void load();
     return () => {
       cancelled = true;
       unsubscribe();
+      unsubscribeConflict();
+      pauseDesktopSaves();
     };
   }, []);
+
+  // Save the in-memory version, including while a sync decision is pending.
+  useEffect(() => { saveState(state); }, [state]);
+
+  const resolve = (choice: 'external' | 'local') => {
+    const raw = conflictRef.current;
+    const incoming = raw ? parseState(raw) : null;
+    if (!raw || !incoming) return;
+    if (choice === 'external') {
+      downloadBackup(stateRef.current, 'local-before-sync');
+      acceptRef.current(raw);
+    } else {
+      downloadBackup(incoming, 'external-before-sync');
+      conflictRef.current = null;
+      setConflictRaw(null);
+      setDesktopBaseRaw(raw);
+      saveState(stateRef.current);
+    }
+  };
 
   // применение темы
   useEffect(() => {
@@ -257,7 +352,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <StateContext.Provider value={state}>
-      <DispatchContext.Provider value={dispatch}>{children}</DispatchContext.Provider>
+      <DispatchContext.Provider value={dispatch}>
+        <SyncContext.Provider value={{ conflict: conflictRaw !== null, retry: () => retryRef.current(), resolve, chooseDirectory: () => chooseDirectoryRef.current() }}>
+          {children}
+        </SyncContext.Provider>
+      </DispatchContext.Provider>
     </StateContext.Provider>
   );
 }

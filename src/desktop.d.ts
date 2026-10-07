@@ -36,7 +36,9 @@ export interface DataConflictInfo {
 
 /** Мост в главный процесс Electron (electron/preload.cjs). В браузере отсутствует. */
 export interface DesktopBridge {
+  /** null only when the file is missing; corrupt/unreadable files reject. */
   loadData(): Promise<string | null>;
+  /** false on failure/conflict; expectedRaw=null means the file must still be absent. */
   saveData(raw: string, expectedRaw?: string | null): Promise<boolean>;
   getInfo(): Promise<{ dir: string; isDefault: boolean }>;
   openDataDir(): Promise<void>;
