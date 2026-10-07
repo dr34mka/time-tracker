@@ -1,21 +1,15 @@
 /* Compact controls inspired by the supplied Shaders editor screenshot.
    Material Symbols supply icon geometry only, not the component styling. */
+@import './control-tokens.css';
+
 :root,
 :root[data-theme='dark'] {
-  --sidebar-surface: #181819;
-  --control: #202022;
-  --control-hover: #29292d;
-  --control-border: #303036;
-  --control-border-hover: #4a4b54;
-  --control-radius: 4px;
-  --panel-radius: 6px;
+  --sidebar-surface: #1a1a1a;
+  --inspector-surface: #191c21;
 }
 :root[data-theme='light'] {
   --sidebar-surface: #e9eaed;
-  --control: #ededef;
-  --control-hover: #e3e4e8;
-  --control-border: #d1d3d9;
-  --control-border-hover: #a4a8b2;
+  --inspector-surface: #f3f4f7;
 }
 .btn {
   min-height: 32px;
@@ -23,7 +17,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--control-radius);
   background: var(--control);
-  color: var(--ink);
+  color: var(--control-ink);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0;
@@ -43,17 +37,21 @@
   background: var(--page);
 }
 .btn-primary {
-  background: var(--control);
-  border-color: color-mix(in srgb, var(--accent) 65%, var(--control-border));
-  color: var(--ink);
+  background: var(--control-selected);
+  border-color: var(--accent);
+  color: var(--control-ink);
 }
 .btn-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 12%, var(--control));
   border-color: var(--accent);
 }
 .btn-quiet,
-.btn-edit {
+.btn-edit,
+.btn-archive,
+.btn-warn,
+.btn-red {
   background: var(--control);
+  border-color: var(--control-border);
 }
 .btn-edit {
   color: var(--accent);
@@ -102,14 +100,15 @@ input:not([type='checkbox']),
 select,
 textarea,
 .select-btn {
-  min-height: 32px;
-  padding: 6px 10px;
+  min-height: 28px;
+  padding: 4px 8px;
   border: 1px solid var(--control-border);
   border-radius: var(--control-radius);
   background: var(--control);
   line-height: 1.4;
   font-family: var(--font-body);
   font-size: 13px;
+  color: var(--control-ink);
 }
 input:not([type='checkbox']):hover,
 select:hover,
@@ -124,7 +123,7 @@ textarea:focus {
   box-shadow: none;
 }
 input[type='number'] {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
 }
 input[type='checkbox'] {
@@ -178,6 +177,7 @@ input[type='checkbox']:checked {
   border-color: var(--control-border-hover);
 }
 .today-inspector {
+  background: var(--inspector-surface);
   overflow: hidden;
 }
 .modal {
@@ -298,4 +298,86 @@ input[type='checkbox']:checked {
 .client-avatar,
 .empty-icon {
   border-radius: var(--control-radius);
+}
+
+/* Selected and semantic actions share the editor surface, including legacy variants. */
+.btn-play.running,
+.dp-day.selected,
+.view-toggle .btn.selected {
+  background: var(--control-selected);
+  border-color: var(--accent);
+  color: var(--control-ink);
+  box-shadow: none;
+}
+.btn-play.running:hover {
+  background: var(--control-hover);
+}
+.btn-ghost:not(.btn-icon) {
+  background: var(--control);
+  border-color: var(--control-border);
+}
+.btn-ghost:not(.btn-icon):hover:not(:disabled) {
+  background: var(--control-hover);
+  border-color: var(--control-border-hover);
+}
+.btn-play {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+}
+.workspace-nav-item,
+.sidebar-project,
+.update-banner-x,
+.swatch {
+  border-radius: var(--control-radius);
+}
+.workspace-nav-item.active {
+  background: var(--control-selected);
+  color: var(--control-ink);
+}
+.workspace-nav-item:hover,
+.sidebar-project:hover,
+.update-banner-x:hover,
+.dp-day:hover {
+  background: var(--control-hover);
+}
+.swatch:hover {
+  transform: none;
+  border-color: var(--control-ink);
+}
+.update-banner-btn,
+.update-banner-btn.secondary {
+  min-height: 32px;
+  padding: 6px 12px;
+  background: var(--control);
+  color: var(--control-ink);
+  border: 1px solid var(--control-border);
+  border-radius: var(--control-radius);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s;
+}
+.update-banner-btn:hover:not(:disabled) {
+  background: var(--control-hover);
+  border-color: var(--control-border-hover);
+  filter: none;
+}
+.update-banner-btn:active:not(:disabled) {
+  background: var(--page);
+}
+.update-banner-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.inspector-section {
+  padding: 18px 12px;
+}
+.inspector-section summary {
+  color: var(--muted);
+}
+.inspector-property strong {
+  min-height: 28px;
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--control-ink);
 }

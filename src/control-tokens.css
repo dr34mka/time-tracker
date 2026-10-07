@@ -1,0 +1,21 @@
+/* Shared by the main window and tray popover.
+   Visually matched to the user-supplied Shaders inspector capture, not extracted CSS. */
+:root,
+:root[data-theme='dark'] {
+  --control: #202329;
+  --control-hover: #292e37;
+  --control-selected: #1d2b3d;
+  --control-border: #2b303a;
+  --control-border-hover: #485363;
+  --control-ink: #cdd5e6;
+  --control-radius: 4px;
+  --panel-radius: 4px;
+}
+:root[data-theme='light'] {
+  --control: #ededef;
+  --control-hover: #e3e4e8;
+  --control-selected: #e0eafa;
+  --control-border: #d1d3d9;
+  --control-border-hover: #a4a8b2;
+  --control-ink: #293344;
+}
