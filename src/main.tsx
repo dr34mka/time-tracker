@@ -6,6 +6,7 @@ import './fonts.css';
 import './styles.css';
 import './workspace.css';
 import './editor-controls.css';
+import './control-elevation.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

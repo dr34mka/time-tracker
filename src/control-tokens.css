@@ -8,6 +8,11 @@
   --control-border: #2b303a;
   --control-border-hover: #485363;
   --control-ink: #cdd5e6;
+  --control-shadow: inset 0 1px 0 #ffffff0a, 0 1px 2px #00000066, 0 2px 5px #00000029;
+  --control-shadow-hover: inset 0 1px 0 #ffffff12, 0 2px 3px #00000066, 0 3px 7px #00000033;
+  --control-shadow-pressed: inset 0 1px 3px #00000066, 0 1px 0 #ffffff06;
+  --control-field-shadow: inset 0 1px 2px #00000024, 0 1px 2px #00000033;
+  --control-highlight: #ffffff06;
   --control-radius: 4px;
   --panel-radius: 4px;
 }
@@ -18,4 +23,9 @@
   --control-border: #d1d3d9;
   --control-border-hover: #a4a8b2;
   --control-ink: #293344;
+  --control-shadow: inset 0 1px 0 #ffffffcc, 0 1px 2px #18202c1a, 0 2px 4px #18202c0d;
+  --control-shadow-hover: inset 0 1px 0 #ffffff, 0 2px 3px #18202c24, 0 3px 6px #18202c12;
+  --control-shadow-pressed: inset 0 1px 3px #18202c29, 0 1px 0 #ffffff99;
+  --control-field-shadow: inset 0 1px 2px #18202c0d, 0 1px 2px #18202c14;
+  --control-highlight: #ffffff33;
 }

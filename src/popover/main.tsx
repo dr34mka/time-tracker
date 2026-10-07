@@ -6,6 +6,7 @@ import { amountFor, formatMoney } from '../lib/money';
 import type { TraySnapshot } from '../desktop.d';
 import '../fonts.css';
 import './popover.css';
+import '../control-elevation.css';
 
 /** Popover меню-бара: компактный пульт таймера под чёлкой */
 function Popover() {

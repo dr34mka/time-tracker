@@ -1,0 +1,74 @@
+/* Shared depth in both renderers. Root scope survives Vite shared-CSS extraction. */
+:root .btn,
+:root .btn-play.running,
+:root .view-toggle .btn.selected,
+:root .update-banner-btn,
+:root .update-banner-btn.secondary,
+:root .popover-btn,
+:root .popover-open {
+  background-image: linear-gradient(var(--control-highlight), transparent);
+  box-shadow: var(--control-shadow);
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s;
+}
+:root .btn:hover:not(:disabled),
+:root .btn-play.running:hover:not(:disabled),
+:root .view-toggle .btn.selected:hover:not(:disabled),
+:root .update-banner-btn:hover:not(:disabled),
+:root .popover-btn:hover:not(:disabled),
+:root .popover-open:hover:not(:disabled) {
+  box-shadow: var(--control-shadow-hover);
+}
+:root .btn:active:not(:disabled),
+:root .btn-play.running:active:not(:disabled),
+:root .view-toggle .btn.selected:active:not(:disabled),
+:root .update-banner-btn:active:not(:disabled),
+:root .popover-btn:active:not(:disabled),
+:root .popover-open:active:not(:disabled) {
+  box-shadow: var(--control-shadow-pressed);
+  background-image: none;
+}
+:root .btn:disabled,
+:root .update-banner-btn:disabled,
+:root .popover-btn:disabled,
+:root .popover-open:disabled {
+  box-shadow: none;
+  background-image: none;
+}
+/* Bare toolbar icons and text actions gain a surface only on interaction. */
+:root .btn-ghost.btn-icon:not(:hover):not(:active) {
+  box-shadow: none;
+  background-image: none;
+}
+:root .workspace-nav-item.active,
+:root .workspace-nav-item:hover,
+:root .sidebar-project:hover,
+:root .update-banner-x:hover,
+:root .task-name-button:hover:not(:disabled),
+:root .project-open:hover,
+:root .dp-day:hover,
+:root .dp-day.selected {
+  box-shadow: var(--control-shadow);
+}
+:root .workspace-nav-item:active,
+:root .sidebar-project:active,
+:root .update-banner-x:active,
+:root .task-name-button:active:not(:disabled),
+:root .project-open:active,
+:root .dp-day:active {
+  box-shadow: var(--control-shadow-pressed);
+}
+:root .swatch { box-shadow: var(--control-shadow); }
+:root .swatch.selected { box-shadow: inset 0 0 0 2px var(--surface), var(--control-shadow); }
+:root .swatch:active { box-shadow: var(--control-shadow-pressed); }
+:root input:not([type='checkbox']),
+:root select,
+:root textarea,
+:root .select-btn,
+:root .inspector-property strong {
+  box-shadow: var(--control-field-shadow);
+}
+:root .select-btn:hover { box-shadow: var(--control-shadow-hover); }
+:root .select-btn:active { box-shadow: var(--control-shadow-pressed); }
+@media (prefers-reduced-motion: reduce) {
+  :root .btn, :root .update-banner-btn, :root .popover-btn, :root .popover-open { transition: none; }
+}
