@@ -5,7 +5,7 @@ import { AppProvider } from './state';
 import './fonts.css';
 import './styles.css';
 import './workspace.css';
-import './material.css';
+import './editor-controls.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -119,7 +119,7 @@ body {
   letter-spacing: 0.08em;
   color: var(--ink-2);
   border: 1px solid var(--hairline);
-  border-radius: 20px;
+  border-radius: 4px;
   padding: 2.5px 7px;
 }
 
@@ -138,8 +138,8 @@ body {
   justify-content: center;
   width: 34px;
   height: 34px;
-  border: none;
-  border-radius: 20px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
   cursor: pointer;
   color: var(--ink);
   background: var(--btn-bg);
@@ -152,8 +152,9 @@ body {
   transform: scale(0.94);
 }
 .popover-btn.primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--btn-bg);
+  border-color: var(--accent);
+  color: var(--ink);
 }
 .popover-btn.primary:hover {
   filter: brightness(1.08);
@@ -165,8 +166,8 @@ body {
 
 .popover-open {
   margin-left: auto;
-  border: none;
-  border-radius: 20px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
   padding: 8px 14px;
   font-family: inherit;
   font-size: 11.5px;
