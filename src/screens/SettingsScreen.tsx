@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppState, useSyncControls } from '../state';
 import { parseState } from '../lib/storage';
 import { downloadBackup } from '../lib/backup';
+import { DESIGN_PREVIEW } from '../lib/runtime';
 import {
   CURRENCIES,
   CURRENCY_LABELS,
@@ -19,7 +20,7 @@ export default function SettingsScreen() {
   const dispatch = useAppDispatch();
   const s = state.settings;
   const sync = useSyncControls();
-  const desktop = window.desktop;
+  const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
 
   const [dataDir, setDataDir] = useState<string | null>(null);
   const [pendingRestore, setPendingRestore] = useState<AppState | null>(null);

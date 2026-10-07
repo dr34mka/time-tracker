@@ -9,6 +9,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:design-preview": "tsc -b && node scripts/build-design-preview.mjs",
+    "preview:design": "vite preview --config vite.preview.config.ts --host 127.0.0.1 --port 5175 --strictPort",
+    "test:ui:design": "node scripts/ui-design-preview.mjs",
     "test": "vitest run",
     "preview": "vite preview",
     "app": "electron .",

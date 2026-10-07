@@ -5,6 +5,7 @@ import { resolveCurrency, resolveRate } from './lib/money';
 import { timerElapsed } from './hooks';
 import { needsSyncDecision } from './lib/sync';
 import { downloadBackup } from './lib/backup';
+import { DESIGN_PREVIEW } from './lib/runtime';
 
 export type Action =
   | { type: 'addProject'; project: Project }
@@ -178,8 +179,8 @@ export function useSyncControls() {
   return useContext(SyncContext)!;
 }
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+export function AppProvider({ children, initialState }: { children: ReactNode; initialState?: AppState }) {
+  const [state, dispatch] = useReducer(reducer, undefined, () => initialState ?? loadState());
   const stateRef = useRef(state);
   stateRef.current = state;
   const [conflictRaw, setConflictRaw] = useState<string | null>(null);
@@ -189,7 +190,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const chooseDirectoryRef = useRef<() => Promise<string | null>>(async () => null);
 
   useEffect(() => {
-    const desktop = window.desktop;
+    const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
     if (!desktop) return;
     let cancelled = false;
     let externalRevision = 0;
@@ -316,7 +317,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // десктоп: снапшот таймера для меню-бара (иконка трея + popover)
   useEffect(() => {
-    const desktop = window.desktop;
+    const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
     if (!desktop?.setTrayState) return;
     const t = state.timer;
     const project = t ? state.projects.find((p) => p.id === t.projectId) : undefined;
@@ -341,7 +342,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // десктоп: команды таймера из popover'а меню-бара
   useEffect(() => {
-    const desktop = window.desktop;
+    const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
     if (!desktop?.onTimerCommand) return;
     return desktop.onTimerCommand((cmd) => {
       if (cmd === 'pause') dispatch({ type: 'pauseTimer' });

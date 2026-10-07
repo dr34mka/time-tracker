@@ -1,3 +1,4 @@
+import { DESIGN_PREVIEW } from './runtime';
 /** Печать HTML через скрытый iframe: открывается системный диалог печати,
     где можно выбрать «Сохранить как PDF». Работает и в Electron
     (window.open там перехватывается, iframe — нет). */
@@ -39,7 +40,7 @@ export function printHtml(html: string): void {
     тихой записи в файловую систему. В браузере (нет window.desktop) —
     фолбэк на системный диалог печати, где тоже можно сохранить как PDF. */
 export async function savePdf(html: string, filename: string): Promise<void> {
-  const desktop = window.desktop;
+  const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
   if (desktop?.renderPdf) {
     const base64 = await desktop.renderPdf(html);
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));

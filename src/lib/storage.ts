@@ -11,7 +11,8 @@ import type {
   TimeEntry,
 } from '../types';
 
-const KEY = 'time-tracker-v1';
+import { DESIGN_PREVIEW, STORAGE_KEY } from './runtime';
+const KEY = STORAGE_KEY;
 /** Прежний ключ (до переименования пакета) — читаем один раз для миграции */
 const LEGACY_KEY = 'time-tracker-pro-v1';
 
@@ -245,7 +246,7 @@ export function parseState(raw: string): AppState | null {
 
 export function loadState(): AppState {
   try {
-    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
+    const raw = localStorage.getItem(KEY) ?? (DESIGN_PREVIEW ? null : localStorage.getItem(LEGACY_KEY));
     return raw ? parseState(raw) ?? DEFAULT_STATE : DEFAULT_STATE;
   } catch {
     return DEFAULT_STATE;
@@ -303,7 +304,7 @@ export function hasLocalDesktopChanges(state: AppState): boolean {
 
 async function writePending(): Promise<void> {
   desktopSaveTimer = null;
-  const desktop = window.desktop;
+  const desktop = DESIGN_PREVIEW ? undefined : window.desktop;
   if (!desktop || saving || paused || desktopBaseRaw === undefined || !pendingRaw) return;
   const raw = pendingRaw;
   pendingRaw = null;
@@ -341,7 +342,7 @@ export function saveState(state: AppState): void {
     localError = true;
   }
   publish({ localError });
-  if (window.desktop && !paused) {
+  if (!DESIGN_PREVIEW && window.desktop && !paused) {
     pendingRaw = raw;
     publish({ pending: true });
     if (desktopSaveTimer) clearTimeout(desktopSaveTimer);

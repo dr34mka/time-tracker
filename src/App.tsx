@@ -12,6 +12,9 @@ import SettingsScreen from './screens/SettingsScreen';
 import ClientsScreen from './screens/ClientsScreen';
 import ClientDetailScreen from './screens/ClientDetailScreen';
 import { useAppDispatch, useAppState } from './state';
+import type { AppState } from './types';
+import { SIDEBAR_KEY } from './lib/runtime';
+import ConfirmModal from './components/ConfirmModal';
 
 export type Route =
   | { name: 'today' }
@@ -30,14 +33,15 @@ const NAV: { route: Route; label: string; icon: IconName }[] = [
   { route: { name: 'settings' }, label: 'Настройки', icon: 'sliders' },
 ];
 
-export default function App() {
+export default function App({ createPreviewState }: { createPreviewState?: () => AppState }) {
+  const [resetPreviewOpen, setResetPreviewOpen] = useState(false);
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [route, setRoute] = useState<Route>({ name: 'today' });
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
-      return localStorage.getItem('time-tracker-sidebar-open') !== 'false';
+      return localStorage.getItem(SIDEBAR_KEY) !== 'false';
     } catch {
       return true;
     }
@@ -49,7 +53,7 @@ export default function App() {
   };
   useEffect(() => {
     try {
-      localStorage.setItem('time-tracker-sidebar-open', String(sidebarOpen));
+      localStorage.setItem(SIDEBAR_KEY, String(sidebarOpen));
     } catch {
       /* In-memory preference still works. */
     }
@@ -104,6 +108,19 @@ export default function App() {
 
   return (
     <div className={'app' + (sidebarOpen ? ' sidebar-expanded' : '')}>
+      {createPreviewState && resetPreviewOpen && (
+        <ConfirmModal
+          title="Сбросить тестовые данные?"
+          message="Изменения в демоверсии будут заменены примерами. Основные данные приложения не затрагиваются."
+          confirmLabel="Сбросить пример"
+          onClose={() => setResetPreviewOpen(false)}
+          onConfirm={() => {
+            dispatch({ type: 'resetAll', state: createPreviewState() });
+            setRoute({ name: 'today' });
+            setResetPreviewOpen(false);
+          }}
+        />
+      )}
       <UpdateBanner />
       <WorkspaceSidebar
         open={sidebarOpen}
@@ -145,7 +162,12 @@ export default function App() {
             <span>/</span>
             <b>{NAV.find((item) => isActive(item.route))?.label}</b>
           </div>
-          <span className="preview-badge">Дизайн · preview</span>
+          <span className="preview-badge">{createPreviewState ? 'Демо · тестовые данные' : 'Дизайн · preview'}</span>
+          {createPreviewState && (
+            <button className="btn" onClick={() => setResetPreviewOpen(true)}>
+              Сбросить пример
+            </button>
+          )}
           <button
             className="btn btn-icon btn-ghost"
             aria-label={

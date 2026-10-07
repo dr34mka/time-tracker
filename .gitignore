@@ -5,3 +5,5 @@ release/
 *.log
 *.tsbuildinfo
 .DS_Store
+
+dist-design-preview/
