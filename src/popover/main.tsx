@@ -4,6 +4,7 @@ import Icon from '../components/Icon';
 import { formatClock } from '../lib/time';
 import { amountFor, formatMoney } from '../lib/money';
 import type { TraySnapshot } from '../desktop.d';
+import '../fonts.css';
 import './popover.css';
 
 /** Popover меню-бара: компактный пульт таймера под чёлкой */

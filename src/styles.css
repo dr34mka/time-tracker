@@ -50,9 +50,9 @@
   --card-sheen: linear-gradient(transparent, transparent);
 }
 :root {
-  --font-display: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-  --font-body: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --font-display: 'Geist Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-body: 'Geist Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
 * {
@@ -1468,68 +1468,4 @@ kbd {
   border-radius: 4px;
   padding: 2px 4px;
   font-size: 10.5px;
-}
-
-/* ===== Мобильная адаптация ===== */
-@media (max-width: 760px) {
-  .content {
-    padding: 16px 16px 112px;
-  }
-  h1 {
-    font-size: 32px;
-  }
-  .timer-clock {
-    font-size: 48px;
-  }
-  .timerbar {
-    padding: 8px 16px;
-  }
-  .field-row {
-    flex-direction: column;
-    gap: 0;
-  }
-  .project-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-  }
-  .project-card {
-    padding: 20px;
-  }
-  .client-detail-notes {
-    margin-left: 0;
-  }
-  .client-summary-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .client-project-head {
-    grid-template-columns: 40px minmax(0, 1fr) max-content;
-    padding: 16px;
-  }
-  .client-project-head .btn {
-    grid-column: 2 / -1;
-    justify-content: center;
-  }
-  .client-task-list {
-    padding-inline: 16px;
-  }
-  .client-task-row {
-    grid-template-columns: 28px minmax(0, 1fr) 36px;
-    gap: 10px;
-  }
-  .client-task-metrics {
-    grid-column: 2;
-    justify-content: flex-start;
-    gap: 16px;
-  }
-  .client-task-row > .btn {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-  }
-  .goal-numbers .big {
-    font-size: 28px;
-  }
-  .day-dot {
-    width: 32px;
-    height: 32px;
-  }
 }

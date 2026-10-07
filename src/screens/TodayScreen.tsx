@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
-import { useAppDispatch, useAppState } from "../state";
-import { useNow, timerElapsed } from "../hooks";
-import { uid } from "../lib/storage";
-import Select from "../components/Select";
+import { useMemo, useState } from 'react';
+import { useAppDispatch, useAppState } from '../state';
+import { useNow, timerElapsed } from '../hooks';
+import { uid } from '../lib/storage';
+import Select from '../components/Select';
 import {
   addDays,
   currentStreak,
@@ -13,7 +13,7 @@ import {
   plural,
   startOfDay,
   startOfWeek,
-} from "../lib/time";
+} from '../lib/time';
 import {
   amountFor,
   computeEntry,
@@ -21,16 +21,16 @@ import {
   formatMoneyByCurrency,
   resolveCurrency,
   resolveRate,
-} from "../lib/money";
-import type { Currency, Project, Task } from "../types";
-import Icon from "../components/Icon";
-import { AnimateDigits } from "../components/AnimateDigits";
-import ProjectForm, { STATUS_LABEL } from "../components/ProjectForm";
-import TaskNameModal from "../components/TaskNameModal";
+} from '../lib/money';
+import type { Currency, Project, Task } from '../types';
+import Icon from '../components/Icon';
+import { AnimateDigits } from '../components/AnimateDigits';
+import ProjectForm, { STATUS_LABEL } from '../components/ProjectForm';
+import TaskNameModal from '../components/TaskNameModal';
 
-const WEEK_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const WEEK_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-const PLACEHOLDER_TITLE = "Новая задача";
+const PLACEHOLDER_TITLE = 'Новая задача';
 
 /** Кольцо прогресса сегодняшнего дня в недельной полосе */
 function TodayRing({ progress }: { progress: number }) {
@@ -73,10 +73,10 @@ export default function TodayScreen({
   const dispatch = useAppDispatch();
   const timer = state.timer;
   const now = useNow(true);
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [view, setView] = useState<'grid' | 'list'>('grid');
   const [formOpen, setFormOpen] = useState(false);
-  const [startProjectId, setStartProjectId] = useState("");
-  const [startTaskId, setStartTaskId] = useState("");
+  const [startProjectId, setStartProjectId] = useState('');
+  const [startTaskId, setStartTaskId] = useState('');
   const [namingTaskId, setNamingTaskId] = useState<string | null>(null);
 
   const taskById = useMemo(
@@ -175,7 +175,7 @@ export default function TodayScreen({
   }, [state.entries, taskById, projectById, state.settings]);
 
   const projects = state.projects.filter(
-    (p) => !p.archived && p.status === "active",
+    (p) => !p.archived && p.status === 'active',
   );
   const selectedStartProject =
     projects.find((project) => project.id === startProjectId) ?? projects[0];
@@ -212,8 +212,8 @@ export default function TodayScreen({
       title: PLACEHOLDER_TITLE,
       createdAt: Date.now(),
     };
-    dispatch({ type: "addTask", task });
-    dispatch({ type: "startTimer", taskId: task.id, projectId: project.id });
+    dispatch({ type: 'addTask', task });
+    dispatch({ type: 'startTimer', taskId: task.id, projectId: project.id });
     setNamingTaskId(task.id);
   };
 
@@ -224,7 +224,7 @@ export default function TodayScreen({
       return;
     }
     dispatch({
-      type: "startTimer",
+      type: 'startTimer',
       taskId: selectedStartTask.id,
       projectId: selectedStartProject.id,
     });
@@ -265,20 +265,20 @@ export default function TodayScreen({
       </div>
 
       <div className="today-layout">
-        <div className={"timer-hero" + (timer?.running ? " live" : "")}>
+        <div className={'timer-hero' + (timer?.running ? ' live' : '')}>
           <div className="panel-heading">
             <span>
               <Icon name="timer" size={15} /> Таймер
             </span>
             <span
-              className={"session-status" + (timer?.running ? " running" : "")}
+              className={'session-status' + (timer?.running ? ' running' : '')}
             >
               <i />
               {timer
                 ? timer.running
-                  ? "Идёт запись"
-                  : "На паузе"
-                : "Готов к работе"}
+                  ? 'Идёт запись'
+                  : 'На паузе'
+                : 'Готов к работе'}
             </span>
           </div>
           <div className="timer-stage">
@@ -289,7 +289,7 @@ export default function TodayScreen({
                     className="dot"
                     style={{
                       background: activeProject?.color,
-                      display: "inline-block",
+                      display: 'inline-block',
                       marginRight: 8,
                     }}
                   />
@@ -299,13 +299,13 @@ export default function TodayScreen({
                     title="Переименовать задачу"
                     onClick={() => activeTask && setNamingTaskId(activeTask.id)}
                   >
-                    <span>{activeTask?.title ?? "Задача"}</span>
+                    <span>{activeTask?.title ?? 'Задача'}</span>
                     <Icon name="edit" size={13} />
                   </button>
                   <span className="meta"> · {activeProject?.name}</span>
                 </div>
                 <div
-                  className={"timer-clock" + (timer.running ? "" : " paused")}
+                  className={'timer-clock' + (timer.running ? '' : ' paused')}
                 >
                   <AnimateDigits
                     value={formatClock(liveMs)}
@@ -318,29 +318,29 @@ export default function TodayScreen({
                   {timer.running ? (
                     <button
                       className="btn"
-                      onClick={() => dispatch({ type: "pauseTimer" })}
+                      onClick={() => dispatch({ type: 'pauseTimer' })}
                     >
                       <Icon name="pause" size={15} /> Пауза
                     </button>
                   ) : (
                     <button
                       className="btn btn-primary"
-                      onClick={() => dispatch({ type: "resumeTimer" })}
+                      onClick={() => dispatch({ type: 'resumeTimer' })}
                     >
                       <Icon name="play" size={15} /> Продолжить
                     </button>
                   )}
                   <button
                     className="btn btn-primary"
-                    onClick={() => dispatch({ type: "stopTimer" })}
+                    onClick={() => dispatch({ type: 'stopTimer' })}
                   >
                     <Icon name="stop" size={15} /> Остановить
                   </button>
                   <button
                     className="btn btn-ghost btn-danger"
                     onClick={() => {
-                      if (confirm("Отменить таймер без сохранения времени?"))
-                        dispatch({ type: "discardTimer" });
+                      if (confirm('Отменить таймер без сохранения времени?'))
+                        dispatch({ type: 'discardTimer' });
                     }}
                   >
                     Отменить
@@ -349,9 +349,9 @@ export default function TodayScreen({
                 <div className="timer-note">
                   <input
                     placeholder="Заметка к записи (что делали?)"
-                    value={timer.note ?? ""}
+                    value={timer.note ?? ''}
                     onChange={(e) =>
-                      dispatch({ type: "setTimerNote", note: e.target.value })
+                      dispatch({ type: 'setTimerNote', note: e.target.value })
                     }
                   />
                 </div>
@@ -370,10 +370,10 @@ export default function TodayScreen({
                   <div className="quick-row">
                     <Select
                       aria-label="Проект для таймера"
-                      value={selectedStartProject?.id ?? ""}
+                      value={selectedStartProject?.id ?? ''}
                       onChange={(value) => {
                         setStartProjectId(value);
-                        setStartTaskId("");
+                        setStartTaskId('');
                       }}
                       minWidth={200}
                       options={projects.map((p) => ({
@@ -385,7 +385,7 @@ export default function TodayScreen({
                       <>
                         <Select
                           aria-label="Задача для таймера"
-                          value={selectedStartTask?.id ?? ""}
+                          value={selectedStartTask?.id ?? ''}
                           onChange={setStartTaskId}
                           minWidth={220}
                           options={quickTasks.map((task) => ({
@@ -433,8 +433,8 @@ export default function TodayScreen({
           </div>
           <div className="timer-footer">
             <span>
-              <kbd>Space</kbd>{" "}
-              {timer ? "пауза / продолжить" : "повторить последнюю задачу"}
+              <kbd>Space</kbd>{' '}
+              {timer ? 'пауза / продолжить' : 'повторить последнюю задачу'}
             </span>
             <span>Часы · минуты · секунды</span>
           </div>
@@ -446,21 +446,21 @@ export default function TodayScreen({
             <div className="view-toggle">
               <button
                 className={
-                  "btn btn-icon btn-ghost" +
-                  (view === "grid" ? " selected" : "")
+                  'btn btn-icon btn-ghost' +
+                  (view === 'grid' ? ' selected' : '')
                 }
                 title="Карточки"
-                onClick={() => setView("grid")}
+                onClick={() => setView('grid')}
               >
                 <Icon name="grid" size={16} />
               </button>
               <button
                 className={
-                  "btn btn-icon btn-ghost" +
-                  (view === "list" ? " selected" : "")
+                  'btn btn-icon btn-ghost' +
+                  (view === 'list' ? ' selected' : '')
                 }
                 title="Список"
-                onClick={() => setView("list")}
+                onClick={() => setView('list')}
               >
                 <Icon name="list" size={16} />
               </button>
@@ -478,7 +478,7 @@ export default function TodayScreen({
               Создайте первый проект — внутри добавите задачи и запустите
               таймер.
             </div>
-          ) : view === "grid" ? (
+          ) : view === 'grid' ? (
             <div className="project-grid">
               {projects.map((p) => {
                 const t = totals.get(p.id);
@@ -505,7 +505,7 @@ export default function TodayScreen({
                       </div>
                       <span
                         className={
-                          "badge" + (p.status === "active" ? " active" : "")
+                          'badge' + (p.status === 'active' ? ' active' : '')
                         }
                       >
                         {STATUS_LABEL[p.status]}
@@ -549,7 +549,7 @@ export default function TodayScreen({
                   <div
                     className="list-row"
                     key={p.id}
-                    style={{ cursor: "pointer" }}
+                    style={{ cursor: 'pointer' }}
                     onClick={() => onOpenProject(p.id)}
                   >
                     {renderAvatar(p, 40)}
@@ -567,7 +567,7 @@ export default function TodayScreen({
                     </div>
                     <span
                       className={
-                        "badge" + (p.status === "active" ? " active" : "")
+                        'badge' + (p.status === 'active' ? ' active' : '')
                       }
                     >
                       {STATUS_LABEL[p.status]}
@@ -593,7 +593,10 @@ export default function TodayScreen({
             <Icon name="sliders" size={13} />
           </div>
           <details className="inspector-section" open>
-            <summary>Цель и активность</summary>
+            <summary>
+              <Icon name="chevron-down" size={18} />
+              Цель и активность
+            </summary>
             <div className="goal-card">
               <div className="streak-row">
                 <div className="flame-badge">
@@ -602,7 +605,7 @@ export default function TodayScreen({
                 <div>
                   <div className="streak-num">
                     {streak}
-                    <small>{plural(streak, ["день", "дня", "дней"])}</small>
+                    <small>{plural(streak, ['день', 'дня', 'дней'])}</small>
                   </div>
                 </div>
                 <div className="streak-side">
@@ -628,7 +631,7 @@ export default function TodayScreen({
                           d.ms > 0
                             ? {
                                 background:
-                                  "color-mix(in srgb, var(--accent) 22%, var(--surface-2))",
+                                  'color-mix(in srgb, var(--accent) 22%, var(--surface-2))',
                               }
                             : undefined
                         }
@@ -636,7 +639,7 @@ export default function TodayScreen({
                     )}
                     <span
                       className="label-mono"
-                      style={d.isToday ? { color: "var(--ink)" } : undefined}
+                      style={d.isToday ? { color: 'var(--ink)' } : undefined}
                     >
                       {d.label}
                     </span>
@@ -661,7 +664,10 @@ export default function TodayScreen({
             </div>
           </details>
           <details className="inspector-section" open>
-            <summary>Биллинг</summary>
+            <summary>
+              <Icon name="chevron-down" size={18} />
+              Биллинг
+            </summary>
             <div className="inspector-property">
               <span>Ставка в час</span>
               <strong className="mono">
@@ -685,12 +691,15 @@ export default function TodayScreen({
             </div>
             <p className="hint">
               {timer
-                ? "Ставка текущей задачи с учётом настроек проекта."
-                : "По умолчанию. У проекта или задачи может быть своя ставка."}
+                ? 'Ставка текущей задачи с учётом настроек проекта.'
+                : 'По умолчанию. У проекта или задачи может быть своя ставка.'}
             </p>
           </details>
           <details className="inspector-section" open>
-            <summary>Рабочее пространство</summary>
+            <summary>
+              <Icon name="chevron-down" size={18} />
+              Рабочее пространство
+            </summary>
             <div className="inspector-property">
               <span>Активных проектов</span>
               <strong className="mono">{projects.length}</strong>

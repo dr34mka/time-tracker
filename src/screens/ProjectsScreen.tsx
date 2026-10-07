@@ -114,7 +114,7 @@ export default function ProjectsScreen({ onOpenProject }: { onOpenProject: (id: 
       {archived.length > 0 && (
         <div className="section">
           <button className="btn btn-ghost" onClick={() => setShowArchived(!showArchived)}>
-            {showArchived ? '▾' : '▸'} Архив ({archived.length})
+            <Icon name={showArchived ? 'chevron-down' : 'chevron-right'} size={20} /> Архив ({archived.length})
           </button>
           {showArchived && (
             <div className="project-grid" style={{ marginTop: 12, opacity: 0.7 }}>

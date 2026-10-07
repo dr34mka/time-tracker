@@ -1,0 +1,3 @@
+/* Local variable fonts. Unicode ranges load only the subsets used on screen. */
+@import '@fontsource-variable/geist/index.css';
+@import '@fontsource-variable/geist-mono/index.css';
